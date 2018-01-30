@@ -1,17 +1,20 @@
 #include <Servo.h>
 
-Servo myservo; 
+Servo leftservo;
+Servo rightservo; 
 // create servo object to control a servo
 
 void setup()
 {
-  myservo.attach(9); 
+  leftservo.attach(9);
+  rightservo.attach(10);
   // attaches the servo on pin 9 to servo object
 
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-myservo.write(45);
+leftservo.write(45);
+rightservo.write(45);
 
 }
