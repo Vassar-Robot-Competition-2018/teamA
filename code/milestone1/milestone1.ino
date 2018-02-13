@@ -1,10 +1,16 @@
-int val = 0;
+#include <Servo.h>
+
+Servo leftservo;
+Servo rightservo;
 
 void setup() {
-  Serial.begin(9600);  
+  leftservo.attach(2);
+  leftservo.write(0);
+  
+  rightservo.attach(3);
+  rightservo.write(180);
 }
 
 void loop() {
-  val = analogRead(0);
-  Serial.println(val);
+
 }
