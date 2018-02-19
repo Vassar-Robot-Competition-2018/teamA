@@ -1,16 +1,29 @@
 #include <Servo.h>
 
-Servo leftservo;
-Servo rightservo;
+int baud = 9600;
+
+int switchPin = 10;
+int servo1Pin = 22;
+int servo2Pin = 23;
+
+Servo servo1;
+Servo servo2;
 
 void setup() {
-  leftservo.attach(2);
-  leftservo.write(0);
-  
-  rightservo.attach(3);
-  rightservo.write(180);
+  Serial.begin(baud);
+  pinMode(switchPin, INPUT);
+  servo1.attach(servo1Pin);
+  servo2.attach(servo2Pin);
 }
 
 void loop() {
-
+  if (digitalRead(switchPin) == HIGH) {
+    Serial.print("stop\n");
+    servo1.write(90);
+    servo2.write(90);
+  } else {
+    Serial.print("go\n");
+    servo1.write(150);
+    servo2.write(30);
+  }
 }
