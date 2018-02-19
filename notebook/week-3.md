@@ -5,3 +5,6 @@ Instead of having just one funnel, we want to have a channel that lets the bad o
 
 ## Tuesday
 George is working on some circuitry and coding. Eliana and Gabe working on FDv2.
+
+## Road to Milestone 1
+On Monday George worked on completing milestone 1. There were some issues with the servos on the Arduino not responding to the rotation angles of 180 and 0 (nor 170 and 10), but finally worked with 150 and 30.
