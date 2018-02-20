@@ -1,4 +1,6 @@
 #include <Servo.h>
+
+// Make sure Pixy module is installed
 #include <SPI.h>
 #include <Pixy.h>
 
