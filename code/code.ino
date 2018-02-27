@@ -81,7 +81,7 @@ bool switchOff() {
   return digitalRead(switchPin) == HIGH;
 }
 
-// Returns 1 if the robot is inside the boundary lines, 0 otherwise
+// Returns true if the robot is inside the boundary lines, false otherwise
 bool inBounds() {
   int leftSensorVal = analogRead(leftSensorPin);
   int rightSensorVal = analogRead(rightSensorPin);
@@ -116,14 +116,16 @@ void stopDriving() {
   rightServo.write(90);
 }
 
+// Backup
 void backup() {
   leftServo.write(30);
   rightServo.write(150);
 }
 
+// Spin right
 void spin() {
-  leftServo.write(150);
-  rightServo.write(150);
+  leftServo.write(30);
+  rightServo.write(30);
 }
 
 int random_int(int min, int max) {
