@@ -21,19 +21,19 @@ int rightSensorPin = A6; // Sensor under right wheel
 int leftSensorBoundaryThreshold = 100;
 int rightSensorBoundaryThreshold = 500;
 
-bool DEBUG = true;
-bool DEBUG_CAMERA = false;
-bool DEBUG_BOARD = true;
-
-#define CAMERA 1
-#define BOARD  2
-
 // Servos
 Servo leftServo;
 Servo rightServo;
 
 // Pixy camera
 Pixy pixy;
+
+enum states {
+  off,        // Switch off
+  foundBlock, // Found a block
+  searching,  // Searching for a block (driving straight)
+  rotating .  // Rotating a random amount
+};
 
 // Initial setup for the Arduino
 void setup() {
@@ -47,39 +47,28 @@ void setup() {
   rightServo.attach(rightServoPin);
 
   // Initialize Pixy camera
-  //  pixy.init();
+  pixy.init();
 }
 
 // Code that continuously runs on Arduino
 void loop() {
-  // If switch is in the off position, stop doing everything
-  if (switchOff()) {
+  // If switch is in the on position, stop doing everything
+  if (digitalRead(switchPin) == HIGH) {
     stopDriving();
     return;
   }
 
   // Switch is in ON position. Keep doing everything...
-  Serial.println("ON!");
   if (inBounds()) {
-    Serial.println("DRIVE!");
     drive();
+    showCameraInfo();
   } else {
-    Serial.println("BOUNDARY!");
-    backup();
-    delay(1000);
-    spin();
-    int spinTime = random_int(1500, 3000);
-    Serial.println("Spinning for " + String(spinTime) + " ms");
-    delay(spinTime);
+    stopDriving(); // Stop driving if we've hit a boundary line
   }
 }
 
-bool switchOff() {
-  return digitalRead(switchPin) == HIGH;
-}
-
 // Returns 1 if the robot is inside the boundary lines, 0 otherwise
-bool inBounds() {
+int inBounds() {
   int leftSensorVal = analogRead(leftSensorPin);
   int rightSensorVal = analogRead(rightSensorPin);
   return (leftSensorVal > leftSensorBoundaryThreshold
@@ -88,49 +77,41 @@ bool inBounds() {
 
 // Drive the robot forward at a constant speed
 void drive() {
-  leftServo.write(150);
-  rightServo.write(30);
+//  leftServo.write(20);
+//  rightServo.write(160);
 }
 
 // Stop the robot from driving
 void stopDriving() {
-  leftServo.write(90);
-  rightServo.write(90);
+//  leftServo.write(90);
+//  rightServo.write(90);
 }
 
-void backup() {
-  leftServo.write(30);
-  rightServo.write(150);
-}
+// http://www.cmucam.org/projects/cmucam5/wiki/Hooking_up_Pixy_to_a_Microcontroller_(like_an_Arduino)
+void showCameraInfo() {
+  static int i = 0;
+  int j;
+  uint16_t blocks;
+  char buf[32];
 
-void spin() {
-  leftServo.write(150);
-  rightServo.write(150);
-}
+  // grab blocks!
+  blocks = pixy.getBlocks();
 
-void debug(String message) {
-  if (DEBUG) {
-    Serial.println(message);
-  }
-}
+  // If there are detect blocks, print them!;
+  if (blocks) {
+    i++;
 
-int random_int(int min, int max) {
-  return min + rand() % (max + 1 - min);
-}
-
-void debug(int group, String message) {
-  if (!DEBUG) {
-    return;
-  }
-  switch (group) {
-    case CAMERA:
-      if (DEBUG_CAMERA) Serial.println(message);
-      break;
-    case BOARD:
-      if (DEBUG_BOARD) Serial.println(message);
-      break;
-    default:
-      Serial.println(message);
+    // do this (print) every 50 frames because printing every
+    // frame would bog down the Arduino
+    if (i % 50 == 0) {
+      sprintf(buf, "Detected %d:\n", blocks);
+      Serial.print(buf);
+      for (j = 0; j < blocks; j++) {
+        sprintf(buf, "  block %d: ", j);
+        Serial.print(buf);
+        pixy.blocks[j].print();
+      }
+    }
   }
 }
 
