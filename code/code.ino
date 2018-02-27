@@ -1,8 +1,12 @@
-#include <Servo.h>
-
-// Make sure Pixy module is installed
+// Pixy Module
 #include <SPI.h>
 #include <Pixy.h>
+
+// Color sensor module
+#include <Adafruit_TCS34725.h>
+
+// Servo module
+#include <Servo.h>
 
 int baud = 9600;
 
@@ -35,6 +39,9 @@ Servo rightServo;
 // Pixy camera
 Pixy pixy;
 
+// Color sensor in funnel
+Adafruit_TCS34725 tcs = Adafruit_TCS34725();
+
 // Initial setup for the Arduino
 void setup() {
   Serial.begin(baud);
@@ -48,21 +55,24 @@ void setup() {
 
   // Initialize Pixy camera
   //  pixy.init();
+
+  tcs.begin();
 }
 
 // Code that continuously runs on Arduino
 void loop() {
   // If switch is in the off position, stop doing everything
   if (switchOff()) {
+    printColors();
     stopDriving();
     return;
   }
-
   // Switch is in ON position. Keep doing everything...
   Serial.println("ON!");
   if (inBounds()) {
     Serial.println("DRIVE!");
     drive();
+    printColors();
   } else {
     Serial.println("BOUNDARY!");
     backup();
@@ -84,6 +94,21 @@ bool inBounds() {
   int rightSensorVal = analogRead(rightSensorPin);
   return (leftSensorVal > leftSensorBoundaryThreshold
           && rightSensorVal > rightSensorBoundaryThreshold);
+}
+
+void printColors() {
+  uint16_t r, g, b, c, colorTemp, lux;
+
+  tcs.getRawData(&r, &g, &b, &c);
+  colorTemp = tcs.calculateColorTemperature(r, g, b);
+
+  if (colorTemp >= 8000 && colorTemp <=8500) {
+    Serial.println("NO BLOCK!!!");
+  } else {
+    Serial.println("BLOCK!!!");
+    stopDriving();
+    delay(4000);
+  }
 }
 
 // Drive the robot forward at a constant speed
