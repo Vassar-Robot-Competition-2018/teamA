@@ -25,13 +25,6 @@ int rightSensorPin = A6; // Sensor under right wheel
 int leftSensorBoundaryThreshold = 100;
 int rightSensorBoundaryThreshold = 500;
 
-bool DEBUG = true;
-bool DEBUG_CAMERA = false;
-bool DEBUG_BOARD = true;
-
-#define CAMERA 1
-#define BOARD  2
-
 // Servos
 Servo leftServo;
 Servo rightServo;
@@ -92,7 +85,7 @@ bool switchOff() {
 bool inBounds() {
   int leftSensorVal = analogRead(leftSensorPin);
   int rightSensorVal = analogRead(rightSensorPin);
-  return (leftSensorVal > leftSensorBoundaryThreshold
+  return (leftSensorVal > ledeftSensorBoundaryThreshold
           && rightSensorVal > rightSensorBoundaryThreshold);
 }
 
@@ -133,29 +126,6 @@ void spin() {
   rightServo.write(150);
 }
 
-void debug(String message) {
-  if (DEBUG) {
-    Serial.println(message);
-  }
-}
-
 int random_int(int min, int max) {
   return min + rand() % (max + 1 - min);
 }
-
-void debug(int group, String message) {
-  if (!DEBUG) {
-    return;
-  }
-  switch (group) {
-    case CAMERA:
-      if (DEBUG_CAMERA) Serial.println(message);
-      break;
-    case BOARD:
-      if (DEBUG_BOARD) Serial.println(message);
-      break;
-    default:
-      Serial.println(message);
-  }
-}
-
