@@ -76,7 +76,8 @@ void loop() {
   // If switch is in the off position, stop doing everything
   if (switchOff()) {
     Serial.println("OFF :(");
-    inBounds();
+    printColors();
+    delay(50);
     stopDriving();
     return;
   }
@@ -103,32 +104,60 @@ bool switchOff() {
 
 // Returns true if the robot is inside the boundary lines, false otherwise
 bool inBounds() {
-  uint16_t rR, gR, bR, cR;
+  uint16_t rR, gR, bR, cR, rL, gL, bL, cL;
   tcsRight.getRawData(&rR, &gR, &bR, &cR);
-  Serial.print("R: "); Serial.print(rR, DEC); Serial.print(" ");
-  Serial.print("G: "); Serial.print(gR, DEC); Serial.print(" ");
-  Serial.print("B: "); Serial.print(bR, DEC); Serial.print(" ");
-  Serial.print("C: "); Serial.print(cR, DEC); Serial.print(" ");
-  Serial.println(" ");
-  uint16_t rL, gL, bL, cL, colorTempL;
   tcsLeft.getRawData(&rL, &gL, &bL, &cL);
 
   return cR < 3000 && cL < 3000;
 }
 
 void printColors() {
-  uint16_t r, g, b, c, colorTemp, lux;
-
-  tcsFunnel.getRawData(&r, &g, &b, &c);
-  colorTemp = calculateColorTemperature(r, g, b);
-  return;
-  if (colorTemp >= 8000 && colorTemp <=8500) {
-    Serial.println("NO BLOCK!!!");
-  } else {
-    Serial.println("BLOCK!!!");
+  uint16_t rR, gR, bR, cR, rL, gL, bL, cL;
+  tcsRight.getRawData(&rR, &gR, &bR, &cR);
+  tcsLeft.getRawData(&rL, &gL, &bL, &cL);
+  Serial.print("R: "); Serial.print(rL, DEC); Serial.print(" ");
+  Serial.print("G: "); Serial.print(gL, DEC); Serial.print(" ");
+  Serial.print("B: "); Serial.print(bL, DEC); Serial.print(" ");
+  Serial.print("C: "); Serial.print(cL, DEC); Serial.print(" ");
+  Serial.println(" ");
+  Serial.print("R: "); Serial.print(rR, DEC); Serial.print(" ");
+  Serial.print("G: "); Serial.print(gR, DEC); Serial.print(" ");
+  Serial.print("B: "); Serial.print(bR, DEC); Serial.print(" ");
+  Serial.print("C: "); Serial.print(cR, DEC); Serial.print(" ");
+  Serial.println(" ");
+  if (isGreen(rR,gR,bR) || isGreen(rL,gL,bL)) {
+    Serial.println("GREEN!");
     stopDriving();
-    delay(4000);
+    delay(10000);
+  } else if (isRed(rR,gR,bR) || isRed(rL,gL,bL)) {
+    Serial.println("RED!");
+    stopDriving();
+    delay(10000);
+  } else if (isBlue(rR,gR,bR) || isBlue(rL,gL,bL)) {
+    Serial.println("BLUE!");
+    stopDriving();
+    delay(10000);
+  } else if (isYellow(rR,gR,bR) || isYellow(rL,gL,bL)) {
+    Serial.println("YELLOW!");
+    stopDriving();
+    delay(10000);
   }
+}
+
+boolean isRed(uint16_t r, uint16_t g, uint16_t b) {
+  return r > 300 && g < 150 && b < 150;
+}
+
+boolean isBlue(uint16_t r, uint16_t g, uint16_t b) {
+  return b > g && g > r;
+}
+
+boolean isYellow(uint16_t r, uint16_t g, uint16_t b) {
+  return r > 700 && g > 600 && b < 500;
+}
+
+boolean isGreen(uint16_t r, uint16_t g, uint16_t b) {
+  return g > 500 && b < 500 && r < 500;
 }
 
 // Drive the robot forward at a constant speed
