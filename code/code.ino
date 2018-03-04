@@ -52,6 +52,12 @@ Adafruit_TCS34725softi2c tcsLeft = Adafruit_TCS34725softi2c(TCS34725_INTEGRATION
 
 rgb_t lastRGBSeen;
 
+// States
+int DRIVING = 1;
+int SPINNING = 2;
+int currentState;
+unsigned long stateStartTime;
+
 // Initial setup for the Arduino
 void setup() {
   Serial.begin(baud);
@@ -92,12 +98,20 @@ void setup() {
   pinMode(greenPin, OUTPUT);
   pinMode(bluePin, OUTPUT); 
   setRGBLed(lastRGBSeen);
+
+  // Set initial state
+  setState(DRIVING);
 }
 
 // Code that continuously runs on Arduino
 void loop() {
   // Things to do every time no matter what
   setRGBLed(lastRGBSeen);
+
+  double seconds = (millis() - stateStartTime) / 1000.0;
+  Serial.print("Been in current state for ");
+  Serial.print(seconds);
+  Serial.println(" seconds.");
   
   // If switch is in the off position, stop doing everything
   if (switchOff()) {
@@ -201,7 +215,9 @@ void spin(int spinTime) {
   leftServo.write(30);
   rightServo.write(30);
   Serial.println("Spinning for " + String(spinTime) + " ms");
+  setState(SPINNING);
   delay(spinTime);
+  setState(DRIVING);
 }
 
 int randomInt(int min, int max) {
@@ -224,5 +240,10 @@ void setRGBLed(rgb_t rgb) {
   digitalWrite(redPin, red);
   digitalWrite(greenPin, green);
   digitalWrite(bluePin, blue);
+}
+
+void setState(int state) {
+  currentState = state;
+  stateStartTime = millis();
 }
 
