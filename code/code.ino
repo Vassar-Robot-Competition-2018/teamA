@@ -36,6 +36,9 @@ int redPin = 2;
 int greenPin = 3;
 int bluePin = 4;
 
+// IR Sensor
+int frontPin = A3;
+
 // Servos
 Servo leftServo;
 Servo rightServo;
