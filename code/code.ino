@@ -60,7 +60,9 @@ unsigned long stateStartTime;
 int DRIVING = 1;
 
 // Spin state info
-int SPINNING = 2;
+int SPIN_BACKUP = 2;
+int backupTime;
+int SPIN_SPIN = 3;
 int spinTime;
 
 // Initial setup for the Arduino
@@ -108,6 +110,7 @@ void setup() {
 // Code that continuously runs on Arduino
 void loop() {
   // Things to do every time no matter what
+  printColors();
   setRGBLed(lastRGBSeen);
   
   // If switch is in the off position, stop doing everything
@@ -119,22 +122,30 @@ void loop() {
   
   // Switch is in ON position. Keep doing everything...
   Serial.println("ON!");
-  if (currentState == SPINNING) {
-    Serial.println("SPINNING!");
-    Serial.print(millis());
-    Serial.print(" ");
-    Serial.println(stateStartTime);
-    spin();
+  if (isSpinning()) {
+    if (currentState == SPIN_SPIN) {
+      Serial.println("SPINNING!");
+      Serial.print(millis());
+      Serial.print(" ");
+      Serial.println(stateStartTime);
+      spin();
+    } else if (currentState == SPIN_BACKUP) {
+      spinBackup();
+    }
   } else if (inBounds()) {
     Serial.println("DRIVE!");
     drive();
-    printColors();
   } else {
     Serial.println("BOUNDARY!");
+    startSpinBackup(1000);
     backup();
     delay(1000);
-    startSpinning(randomInt(1500, 3000));
+    
   }
+}
+
+bool isSpinning() {
+  return currentState == SPIN_SPIN || currentState == SPIN_BACKUP;
 }
 
 bool switchOff() {
@@ -225,10 +236,29 @@ void spin() {
     setState(DRIVING);
     return;
   }
-  if (currentState != SPINNING) {
-    setState(SPINNING);
+  if (currentState != SPIN_SPIN) {
+    setState(SPIN_SPIN);
   }
   setSpeed(-100, 100);
+}
+
+void startSpinBackup(int time) {
+  backupTime = time;
+  spinBackup();
+}
+
+void spinBackup() {
+  if (currentState != SPIN_BACKUP) {
+    setState(SPIN_BACKUP);
+  }
+  int timeLeft = backupTime - (millis() - stateStartTime);
+  Serial.print("TIME LEFT: ");
+  Serial.println(timeLeft);
+  if (timeLeft <= 0) {
+    startSpinning(randomInt(1500, 3000));
+    return;
+  }
+  setSpeed(-100);
 }
 
 int randomInt(int min, int max) {
