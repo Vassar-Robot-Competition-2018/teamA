@@ -96,13 +96,10 @@ void setup() {
   }
 
   // Set RGB Output
-  lastRGBSeen.r = 0;
-  lastRGBSeen.g = 0;
-  lastRGBSeen.b = 0;
   pinMode(redPin, OUTPUT);
   pinMode(greenPin, OUTPUT);
   pinMode(bluePin, OUTPUT); 
-  setRGBLed(lastRGBSeen);
+  setRGBLed(setLastRGBSeen(255,255,255));
 
   // Set initial state
   setState(DRIVING);
@@ -119,6 +116,7 @@ void loop() {
     stopDriving();
     return;
   }
+  
   // Switch is in ON position. Keep doing everything...
   Serial.println("ON!");
   if (currentState == SPINNING) {
@@ -221,7 +219,6 @@ void startSpinning(int time) {
 // Continue spinning right
 void spin() {
   int timeLeft = spinTime - (millis() - stateStartTime);
-  spin(timeLeft);
   Serial.print("TIME LEFT: ");
   Serial.println(timeLeft);
   if (timeLeft <= 0) {
@@ -238,10 +235,11 @@ int randomInt(int min, int max) {
   return min + rand() % (max + 1 - min);
 }
 
-void setLastRGBSeen(uint16_t r, uint16_t g, uint16_t b) {
+rgb_t setLastRGBSeen(uint16_t r, uint16_t g, uint16_t b) {
   lastRGBSeen.r = r;
   lastRGBSeen.g = g;
   lastRGBSeen.b = b;
+  return lastRGBSeen;
 }
 
 void setRGBLed(rgb_t rgb) {
