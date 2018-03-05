@@ -53,10 +53,15 @@ Adafruit_TCS34725softi2c tcsLeft = Adafruit_TCS34725softi2c(TCS34725_INTEGRATION
 rgb_t lastRGBSeen;
 
 // States
-int DRIVING = 1;
-int SPINNING = 2;
 int currentState;
 unsigned long stateStartTime;
+
+// Driving state
+int DRIVING = 1;
+
+// Spin state info
+int SPINNING = 2;
+int spinTime;
 
 // Initial setup for the Arduino
 void setup() {
@@ -107,11 +112,6 @@ void setup() {
 void loop() {
   // Things to do every time no matter what
   setRGBLed(lastRGBSeen);
-
-  double seconds = (millis() - stateStartTime) / 1000.0;
-  Serial.print("Been in current state for ");
-  Serial.print(seconds);
-  Serial.println(" seconds.");
   
   // If switch is in the off position, stop doing everything
   if (switchOff()) {
@@ -126,7 +126,7 @@ void loop() {
     Serial.print(millis());
     Serial.print(" ");
     Serial.println(stateStartTime);
-    spin(2500 - (millis() - stateStartTime));
+    spin();
   } else if (inBounds()) {
     Serial.println("DRIVE!");
     drive();
@@ -134,9 +134,8 @@ void loop() {
   } else {
     Serial.println("BOUNDARY!");
     backup();
-    delay(800);
-//    int spinTime = randomInt(1500, 3000);
-    spin(2500);
+    delay(1000);
+    startSpinning(randomInt(1500, 3000));
   }
 }
 
@@ -213,8 +212,16 @@ void backup() {
   setSpeed(-100);
 }
 
-// Spin right
-void spin(int timeLeft) {
+// Start the robot spinning
+void startSpinning(int time) {
+  spinTime = time;
+  spin();
+}
+
+// Continue spinning right
+void spin() {
+  int timeLeft = spinTime - (millis() - stateStartTime);
+  spin(timeLeft);
   Serial.print("TIME LEFT: ");
   Serial.println(timeLeft);
   if (timeLeft <= 0) {
