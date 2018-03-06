@@ -36,8 +36,8 @@ int redPin = 2;
 int greenPin = 3;
 int bluePin = 4;
 
-// IR Sensor
-int frontPin = A3;
+// Front distance pin
+int frontDistPin = A3;
 
 // Servos
 Servo leftServo;
@@ -67,6 +67,13 @@ int SPIN_BACKUP = 2;
 int backupTime;
 int SPIN_SPIN = 3;
 int spinTime;
+
+// Push state info
+int PUSH = 4;
+int PUSH_LEFT = 42;
+int PUSH_RIGHT = 41;
+int PUSH_BOTH = 40;
+int pushState = PUSH_BOTH;
 
 // Initial setup for the Arduino
 void setup() {
@@ -113,12 +120,14 @@ void setup() {
 // Code that continuously runs on Arduino
 void loop() {
   // Things to do every time no matter what
+  printCurrentState();
   printColors();
   setRGBLed(lastRGBSeen);
   
   // If switch is in the off position, stop doing everything
   if (switchOff()) {
-    Serial.println("OFF :(");
+//    Serial.println("OFF :(");
+    setState(DRIVING);
     stopDriving();
     return;
   }
@@ -135,15 +144,39 @@ void loop() {
     } else if (currentState == SPIN_BACKUP) {
       spinBackup();
     }
-  } else if (inBounds()) {
-    Serial.println("DRIVE!");
-    drive();
+  } else if (currentState == PUSH) {
+    push();
+  } else if (inBounds() && currentState == DRIVING) {
+    searchForBlock();
   } else {
-    Serial.println("BOUNDARY!");
     startSpinBackup(1000);
-    backup();
-    delay(1000);
-    
+  }
+}
+
+void printCurrentState() {
+  Serial.print("Current State: ");
+  switch(currentState) {
+    case 1:
+      Serial.println("DRIVING");
+      break;
+    case 2:
+      Serial.println("SPIN_BACKUP");
+      break;
+    case 3:
+      Serial.println("SPIN_SPIN");
+      break;
+    case 4:
+      Serial.print("PUSH - ");
+      if (pushState == PUSH_BOTH) {
+        Serial.println("PUSH_BOTH");
+      } else if (pushState == PUSH_LEFT) {
+        Serial.println("PUSH_LEFT");
+      } else {
+        Serial.println("PUSH_RIGHT");
+      }
+      break;
+    default:
+      Serial.println("INVALID");
   }
 }
 
@@ -168,16 +201,16 @@ void printColors() {
   uint16_t rR, gR, bR, cR, rL, gL, bL, cL;
   tcsRight.getRawData(&rR, &gR, &bR, &cR);
   tcsLeft.getRawData(&rL, &gL, &bL, &cL);
-  Serial.print("R: "); Serial.print(rL, DEC); Serial.print(" ");
-  Serial.print("G: "); Serial.print(gL, DEC); Serial.print(" ");
-  Serial.print("B: "); Serial.print(bL, DEC); Serial.print(" ");
-  Serial.print("C: "); Serial.print(cL, DEC); Serial.print(" ");
-  Serial.println(" ");
-  Serial.print("R: "); Serial.print(rR, DEC); Serial.print(" ");
-  Serial.print("G: "); Serial.print(gR, DEC); Serial.print(" ");
-  Serial.print("B: "); Serial.print(bR, DEC); Serial.print(" ");
-  Serial.print("C: "); Serial.print(cR, DEC); Serial.print(" ");
-  Serial.println(" ");
+//  Serial.print("R: "); Serial.print(rL, DEC); Serial.print(" ");
+//  Serial.print("G: "); Serial.print(gL, DEC); Serial.print(" ");
+//  Serial.print("B: "); Serial.print(bL, DEC); Serial.print(" ");
+//  Serial.print("C: "); Serial.print(cL, DEC); Serial.print(" ");
+//  Serial.println(" ");
+//  Serial.print("R: "); Serial.print(rR, DEC); Serial.print(" ");
+//  Serial.print("G: "); Serial.print(gR, DEC); Serial.print(" ");
+//  Serial.print("B: "); Serial.print(bR, DEC); Serial.print(" ");
+//  Serial.print("C: "); Serial.print(cR, DEC); Serial.print(" ");
+//  Serial.println(" ");
   if (isGreen(rR,gR,bR) || isGreen(rL,gL,bL)) {
     Serial.println("GREEN!");
     setLastRGBSeen(0, 255, 0);
@@ -207,6 +240,21 @@ boolean isYellow(uint16_t r, uint16_t g, uint16_t b) {
 
 boolean isGreen(uint16_t r, uint16_t g, uint16_t b) {
   return g > 500 && b < 500 && r < 500;
+}
+
+void searchForBlock() {
+  drive();
+  int currentDist = analogRead(frontDistPin);
+  int distErrorThreshold = 1;
+  Serial.print("FRONT IR DISTANCE: ");
+  Serial.println(currentDist);
+
+  // If the current distance of an object is within
+  // 25 units then switch to the push state and try
+  // to push the object out of bounds
+  if (currentDist < 25) {
+    push();
+  }
 }
 
 // Drive the robot forward at a constant speed
@@ -262,6 +310,54 @@ void spinBackup() {
     return;
   }
   setSpeed(-100);
+}
+
+void push() {
+  if (currentState != PUSH) {
+    setState(PUSH);
+    pushState = PUSH_BOTH;
+  }
+
+  // TODO: These getRawData functions need to be moved
+  // somewhere else. It takes too long to read and
+  // everything gets messed up. Make the inBounds
+  // function return an int specifying what wheel(s) is out
+  // of bounds
+  uint16_t rR, gR, bR, cR, rL, gL, bL, cL; // Wheel color sensor info
+  tcsRight.getRawData(&rR, &gR, &bR, &cR);
+  tcsLeft.getRawData(&rL, &gL, &bL, &cL);
+
+  boolean in = inBounds();
+  if (!in && pushState == PUSH_BOTH) {
+    // Determine which side we need to push more
+    if (cR < 3000 && cL >= 3000) {
+      pushState = PUSH_LEFT;
+      setSpeed(0, 100);
+    } else if (cR >= 3000 && cL < 3000) {
+      pushState = PUSH_RIGHT;
+      setSpeed(100, 0);
+    } else {
+      setState(DRIVING);
+    }
+  } else if (pushState == PUSH_LEFT) {
+    // Push the left wheel forward until it's
+    // also out of bounds
+    if(cL < 3000) {
+      setState(DRIVING);
+      return;
+    }
+    setSpeed(-100, 100);
+  } else if (pushState == PUSH_RIGHT) {
+    // Push the right wheel forward unti it's
+    // also out of bounds
+    if (cR < 3000) {
+      setState(DRIVING);
+      return;
+    }
+    setSpeed(100, -100);
+  } else {
+    drive();
+  }
 }
 
 int randomInt(int min, int max) {
