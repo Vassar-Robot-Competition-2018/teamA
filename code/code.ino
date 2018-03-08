@@ -25,6 +25,8 @@ int switchPin = 10; // ON / OFF switch
 int leftServoPin = 22; // Continuous rotation servo for left wheel
 int rightServoPin = 23; // Continuous rotation servo for right wheel
 
+int frontFlapServoPin = 47;
+
 // The threshold for the boundary lines
 // Setting to 100 temporarily. This will also catch the in-boundary lines,
 // but we'll deal with that later
@@ -43,6 +45,8 @@ int frontDistPin = A3;
 Servo leftServo;
 Servo rightServo;
 
+Servo frontFlapServo;
+
 // Pixy camera
 Pixy pixy;
 
@@ -59,9 +63,6 @@ rgb_t lastRGBSeen;
 int currentState;
 unsigned long stateStartTime;
 
-// Driving state
-int DRIVING = 1;
-
 // Spin state info
 int SPIN_BACKUP = 2;
 int backupTime;
@@ -70,10 +71,11 @@ int spinTime;
 
 // Push state info
 int PUSH = 4;
-int PUSH_LEFT = 42;
-int PUSH_RIGHT = 41;
-int PUSH_BOTH = 40;
-int pushState = PUSH_BOTH;
+
+// Out of bound states
+int LEFT_OUT = 40;
+int RIGHT_OUT = 41;
+int BOTH_OUT = 42;
 
 // Initial setup for the Arduino
 void setup() {
@@ -85,6 +87,8 @@ void setup() {
   // Initialize our continuous rotation servos
   leftServo.attach(leftServoPin);
   rightServo.attach(rightServoPin);
+
+  frontFlapServo.attach(frontFlapServoPin);
 
   // Initialize Pixy camera
   //  pixy.init();
@@ -114,7 +118,7 @@ void setup() {
   setRGBLed(setLastRGBSeen(255,255,255));
 
   // Set initial state
-  setState(DRIVING);
+  setState(PUSH);
 }
 
 // Code that continuously runs on Arduino
@@ -127,38 +131,37 @@ void loop() {
   // If switch is in the off position, stop doing everything
   if (switchOff()) {
 //    Serial.println("OFF :(");
-    setState(DRIVING);
+    setState(PUSH);
     stopDriving();
     return;
   }
   
   // Switch is in ON position. Keep doing everything...
   Serial.println("ON!");
-  if (isSpinning()) {
-    if (currentState == SPIN_SPIN) {
-      Serial.println("SPINNING!");
-      Serial.print(millis());
-      Serial.print(" ");
-      Serial.println(stateStartTime);
-      spin();
-    } else if (currentState == SPIN_BACKUP) {
-      spinBackup();
-    }
-  } else if (currentState == PUSH) {
+  if (currentState == PUSH) {
     push();
-  } else if (inBounds() && currentState == DRIVING) {
-    searchForBlock();
+  } else if (isSpinning()) {
+    if (currentState == SPIN_BACKUP) {
+      spinBackup();
+    } else if (currentState == SPIN_SPIN) {
+      spin();
+    } else {
+      error("INVALID SPIN STATE");
+    }
   } else {
-    startSpinBackup(1000);
+    error("INVALID STATE");
   }
+}
+
+void error(String message) {
+  Serial.println(message);
+  stopDriving();
+  delay(2500);
 }
 
 void printCurrentState() {
   Serial.print("Current State: ");
   switch(currentState) {
-    case 1:
-      Serial.println("DRIVING");
-      break;
     case 2:
       Serial.println("SPIN_BACKUP");
       break;
@@ -166,17 +169,11 @@ void printCurrentState() {
       Serial.println("SPIN_SPIN");
       break;
     case 4:
-      Serial.print("PUSH - ");
-      if (pushState == PUSH_BOTH) {
-        Serial.println("PUSH_BOTH");
-      } else if (pushState == PUSH_LEFT) {
-        Serial.println("PUSH_LEFT");
-      } else {
-        Serial.println("PUSH_RIGHT");
-      }
+      Serial.println("PUSH");
       break;
     default:
-      Serial.println("INVALID");
+      Serial.print(currentState);
+      Serial.println(": INVALID STATE");
   }
 }
 
@@ -189,12 +186,25 @@ bool switchOff() {
 }
 
 // Returns true if the robot is inside the boundary lines, false otherwise
-bool inBounds() {
+int isOutOfBounds() {
   uint16_t rR, gR, bR, cR, rL, gL, bL, cL;
   tcsRight.getRawData(&rR, &gR, &bR, &cR);
   tcsLeft.getRawData(&rL, &gL, &bL, &cL);
 
-  return cR < 3000 && cL < 3000;
+  boolean leftOutOfBounds = cL > 3000;
+  boolean rightOutOfBounds = cR > 3000;
+
+  Serial.print("cL: "); Serial.print(cL); Serial.print("; cR: "); Serial.println(cR);
+
+  if (leftOutOfBounds && rightOutOfBounds) {
+    return BOTH_OUT;
+  } else if (leftOutOfBounds) {
+    return LEFT_OUT;
+  } else if (rightOutOfBounds) {
+    return RIGHT_OUT;
+  } else {
+    return 0;
+  }
 }
 
 void printColors() {
@@ -242,21 +252,6 @@ boolean isGreen(uint16_t r, uint16_t g, uint16_t b) {
   return g > 500 && b < 500 && r < 500;
 }
 
-void searchForBlock() {
-  drive();
-  int currentDist = analogRead(frontDistPin);
-  int distErrorThreshold = 1;
-  Serial.print("FRONT IR DISTANCE: ");
-  Serial.println(currentDist);
-
-  // If the current distance of an object is within
-  // 25 units then switch to the push state and try
-  // to push the object out of bounds
-  if (currentDist < 25) {
-    push();
-  }
-}
-
 // Drive the robot forward at a constant speed
 void drive() {
   setSpeed(100);
@@ -281,10 +276,15 @@ void startSpinning(int time) {
 // Continue spinning right
 void spin() {
   int timeLeft = spinTime - (millis() - stateStartTime);
+  Serial.println("SPINNING!");
+  Serial.print(millis());
+  Serial.print(" ");
+  Serial.println(stateStartTime);
   Serial.print("TIME LEFT: ");
   Serial.println(timeLeft);
+
   if (timeLeft <= 0) {
-    setState(DRIVING);
+    setState(PUSH);
     return;
   }
   if (currentState != SPIN_SPIN) {
@@ -315,48 +315,19 @@ void spinBackup() {
 void push() {
   if (currentState != PUSH) {
     setState(PUSH);
-    pushState = PUSH_BOTH;
   }
 
-  // TODO: These getRawData functions need to be moved
-  // somewhere else. It takes too long to read and
-  // everything gets messed up. Make the inBounds
-  // function return an int specifying what wheel(s) is out
-  // of bounds
-  uint16_t rR, gR, bR, cR, rL, gL, bL, cL; // Wheel color sensor info
-  tcsRight.getRawData(&rR, &gR, &bR, &cR);
-  tcsLeft.getRawData(&rL, &gL, &bL, &cL);
-
-  boolean in = inBounds();
-  if (!in && pushState == PUSH_BOTH) {
-    // Determine which side we need to push more
-    if (cR < 3000 && cL >= 3000) {
-      pushState = PUSH_LEFT;
-      setSpeed(0, 100);
-    } else if (cR >= 3000 && cL < 3000) {
-      pushState = PUSH_RIGHT;
-      setSpeed(100, 0);
-    } else {
-      setState(DRIVING);
-    }
-  } else if (pushState == PUSH_LEFT) {
-    // Push the left wheel forward until it's
-    // also out of bounds
-    if(cL < 3000) {
-      setState(DRIVING);
-      return;
-    }
+  int outOfBounds = isOutOfBounds();
+  if (!outOfBounds) {
+    setSpeed(100);
+  } else if (outOfBounds == LEFT_OUT) {
+    // Stop moving left wheel
     setSpeed(-100, 100);
-  } else if (pushState == PUSH_RIGHT) {
-    // Push the right wheel forward unti it's
-    // also out of bounds
-    if (cR < 3000) {
-      setState(DRIVING);
-      return;
-    }
+  } else if (outOfBounds == RIGHT_OUT) {
+    // Stop moving right wheel
     setSpeed(100, -100);
   } else {
-    drive();
+    startSpinBackup(1000);
   }
 }
 
