@@ -12,5 +12,5 @@ We anticipate having to design multiple iterations of our chamber mechanism. Thi
 
 ## Photos
 
-![Week 7 Image 1](week-7-01-sm.jpg "Top of Sliding Chamber")
-![Week 7 Image 2](week-7-02-sm.jpg "Underside of Sliding Chamber")
+[![Week 7 Image 1](week-7-01-sm.jpg "Top of Sliding Chamber")](week-7-01.jpg)
+[![Week 7 Image 2](week-7-02-sm.jpg "Underside of Sliding Chamber")](week-7-02.jpg)
