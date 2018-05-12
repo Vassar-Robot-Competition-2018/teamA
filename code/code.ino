@@ -25,7 +25,15 @@ int leftBackServoPin = 6; // Continuous rotation servo for left back wheel
 int rightBackServoPin = 8; // Continuous rotation servo for right back wheel
 int sorterMechanismServoPin = 12; // Flippy Floppy McDoodle if Bad Block
 int doorMechanismServoPin = 13; //Door says come in!! or Don't!!
+
+
+
 int blockPresent = 0; // We start out without a block in the chamber.
+char homeColor = ""// 
+
+
+
+
 
 // The threshold for the boundary lines
 // Setting to 100 temporarily. This will also catch the in-boundary lines,
@@ -152,7 +160,7 @@ void loop() {
     push(outOfBounds);
   
 
-    if(blockPresent && isRedBlock(rF, gF, bF, cF)) {
+    if(blockPresent && isHomeBlock(rF, gF, bF, cF)) {
       Serial.print("THERE IS A BLOCK");
       setDoorOpen();
       delay(1000);
@@ -231,15 +239,28 @@ void printBlockColors(uint16_t rF, uint16_t gF, uint16_t bF, uint16_t cF) {
   
   
   if (isYellowBlock(rF, gF, bF, cF)) {
+    if(homeColor == "") {
+      homeColor = "Yellow"
+    }
+    
     Serial.println("YELLOW!");
     blockPresent = 1;
   } else if (isRedBlock(rF, gF, bF, cF)) {
+    if(homeColor == "") {
+      homeColor = "Red"
+    }
     Serial.println("RED!");
     blockPresent = 1;
   } else if (isBlueBlock(rF, gF, bF, cF)) {
+    if(homeColor == "") {
+      homeColor = "Blue"
+    }
     Serial.println("BLUE!");
     blockPresent = 1;
   } else if (isGreenBlock(rF, gF, bF, cF)) {
+    if(homeColor == "") {
+      homeColor = "Green"
+    }
     Serial.println("GREEN!");
     blockPresent = 1;
   } else {
@@ -330,6 +351,23 @@ boolean isGreen(uint16_t r, uint16_t g, uint16_t b) {
   // red & blue within 20 of eachother
   return g > 500 && b < 500 && r < 500;
 }
+
+boolean isHomeBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  if(homeColor == "Green" && isGreen(r,g,b,c)) {
+    return 1;
+  } else if (homeColor == "Blue" && isBlue(r,g,b,c)) {
+    return 1;
+  } else if (homeColor == "Yellow" && isYellow(r,g,b,c)) {
+    return 1; 
+  } else if (homeColor == "Red" && isRed(r,g,b,c)) {
+    return 1; 
+  } else if (homeColor == "") {
+    Serial.print("Home color has not been set");
+  } else {
+    return 0;
+  }
+}
+
 
 // Drive the robot forward at a constant speed
 void drive() {
