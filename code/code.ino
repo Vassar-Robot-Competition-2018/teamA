@@ -130,11 +130,20 @@ void setup() {
 //Code that continuously runs on Arduino
 void loop() {
   // Things to do every time no matter what
+  uint16_t rF, bF, gF, cF, rR, gR, bR, cR, rL, gL, bL, cL;
+  tcsRight.getRawData(&rR, &gR, &bR, &cR);
+  tcsLeft.getRawData(&rL, &gL, &bL, &cL);
+  tcsFunnel.getRawData(&rF, &gF, &bF, &cF);
+
   printCurrentState();
-  printColors();
-//  setRGBLed(lastRGBSeen);
+
+  printBlockColors(rF, gF, bF, cF);
+
+  int outOfBounds = isOutOfBounds(rL, gL, bL, cL, rR, gR, bR, cR);
+
+  setRGBLed(lastRGBSeen);
   if (currentState == PUSH) {
-    push();
+    push(outOfBounds);
   } else if (isSpinning()) {
     if (currentState == SPIN_BACKUP) {
       spinBackup();
@@ -178,11 +187,8 @@ bool isSpinning() {
 }
 
 // Returns true if the robot is inside the boundary lines, false otherwise
-int isOutOfBounds() {
-  uint16_t rR, gR, bR, cR, rL, gL, bL, cL;
-  tcsRight.getRawData(&rR, &gR, &bR, &cR);
-  tcsLeft.getRawData(&rL, &gL, &bL, &cL);
-
+int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
+                  uint16_t rR, uint16_t gR, uint16_t bR, uint16_t cR) {
   boolean leftOutOfBounds = cL > 1200;
   boolean rightOutOfBounds = cR > 1200;
 
@@ -199,48 +205,99 @@ int isOutOfBounds() {
   }
 }
 
-void printColors() {
-  uint16_t rR, gR, bR, cR, rL, gL, bL, cL;
-  tcsRight.getRawData(&rR, &gR, &bR, &cR);
-  tcsLeft.getRawData(&rL, &gL, &bL, &cL);
-  //  Serial.print("R: "); Serial.print(rL, DEC); Serial.print(" ");
-  //  Serial.print("G: "); Serial.print(gL, DEC); Serial.print(" ");
-  //  Serial.print("B: "); Serial.print(bL, DEC); Serial.print(" ");
-  //  Serial.print("C: "); Serial.print(cL, DEC); Serial.print(" ");
-  //  Serial.println(" ");
-  //  Serial.print("R: "); Serial.print(rR, DEC); Serial.print(" ");
-  //  Serial.print("G: "); Serial.print(gR, DEC); Serial.print(" ");
-  //  Serial.print("B: "); Serial.print(bR, DEC); Serial.print(" ");
-  //  Serial.print("C: "); Serial.print(cR, DEC); Serial.print(" ");
-  //  Serial.println(" ");
-  if (isGreen(rR, gR, bR) || isGreen(rL, gL, bL)) {
-    Serial.println("GREEN!");
-    setLastRGBSeen(0, 255, 0);
-  } else if (isRed(rR, gR, bR) || isRed(rL, gL, bL)) {
-    Serial.println("RED!");
-    setLastRGBSeen(255, 0, 0);
-  } else if (isBlue(rR, gR, bR) || isBlue(rL, gL, bL)) {
-    Serial.println("BLUE!");
-    setLastRGBSeen(0, 0, 255);
-  } else if (isYellow(rR, gR, bR) || isYellow(rL, gL, bL)) {
+void printBlockColors(uint16_t rF, uint16_t gF, uint16_t bF, uint16_t cF) {
+  // MAKE SURE YELLOW IS HECKED FIRST!!!
+  if (isYellowBlock(rF, gF, bF, cF)) {
     Serial.println("YELLOW!");
-    setLastRGBSeen(255, 255, 0);
+  } else if (isRedBlock(rF, gF, bF, cF)) {
+    Serial.println("RED!");
+  } else if (isBlueBlock(rF, gF, bF, cF)) {
+    Serial.println("BLUE!");
+  } else if (isGreenBlock(rF, gF, bF, cF)) {
+    Serial.println("GREEN!");
+  } else {
+    Serial.println("NO BLOCK...");
   }
 }
 
+boolean isRedBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  // red greater than green & blue
+  // green & blue within 30 of eachother
+  return r > g && r > b && c > 200;
+}
+
+boolean isBlueBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  // blue is greatest
+  // red is least
+  return b > g && g > r && c > 400;
+}
+
+boolean isYellowBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  // red most
+  // green middle
+  // blue least
+  // red & green within 200 of eachother
+  return r > g && g > b && c > 400;
+}
+
+boolean isGreenBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  // green greatest
+  // red & blue within 20 of eachother
+  return g > b && g > r && c > 400;
+}
+
+//void printColors() {
+//  uint16_t rR, gR, bR, cR, rL, gL, bL, cL;
+//  tcsRight.getRawData(&rR, &gR, &bR, &cR);
+//  tcsLeft.getRawData(&rL, &gL, &bL, &cL);
+//  //  Serial.print("R: "); Serial.print(rL, DEC); Serial.print(" ");
+//  //  Serial.print("G: "); Serial.print(gL, DEC); Serial.print(" ");
+//  //  Serial.print("B: "); Serial.print(bL, DEC); Serial.print(" ");
+//  //  Serial.print("C: "); Serial.print(cL, DEC); Serial.print(" ");
+//  //  Serial.println(" ");
+//  //  Serial.print("R: "); Serial.print(rR, DEC); Serial.print(" ");
+//  //  Serial.print("G: "); Serial.print(gR, DEC); Serial.print(" ");
+//  //  Serial.print("B: "); Serial.print(bR, DEC); Serial.print(" ");
+//  //  Serial.print("C: "); Serial.print(cR, DEC); Serial.print(" ");
+//  //  Serial.println(" ");
+//  if (isGreen(rR, gR, bR) || isGreen(rL, gL, bL)) {
+//    Serial.println("GREEN!");
+//    setLastRGBSeen(0, 255, 0);
+//  } else if (isRed(rR, gR, bR) || isRed(rL, gL, bL)) {
+//    Serial.println("RED!");
+//    setLastRGBSeen(255, 0, 0);
+//  } else if (isBlue(rR, gR, bR) || isBlue(rL, gL, bL)) {
+//    Serial.println("BLUE!");
+//    setLastRGBSeen(0, 0, 255);
+//  } else if (isYellow(rR, gR, bR) || isYellow(rL, gL, bL)) {
+//    Serial.println("YELLOW!");
+//    setLastRGBSeen(255, 255, 0);
+//  }
+//}
+
 boolean isRed(uint16_t r, uint16_t g, uint16_t b) {
+  // red greater than green & blue
+  // green & blue within 30 of eachother
   return r > 300 && g < 150 && b < 150;
 }
 
 boolean isBlue(uint16_t r, uint16_t g, uint16_t b) {
+  // blue is greatest
+  // red is least
   return b > g && g > r;
 }
 
 boolean isYellow(uint16_t r, uint16_t g, uint16_t b) {
+  // red most
+  // green middle
+  // blue least
+  // red & green within 200 of eachother
   return r > 700 && g > 600 && b < 500;
 }
 
 boolean isGreen(uint16_t r, uint16_t g, uint16_t b) {
+  // green greatest
+  // red & blue within 20 of eachother
   return g > 500 && b < 500 && r < 500;
 }
 
@@ -306,12 +363,11 @@ void spinBackup() {
   setSpeed(-100);
 }
 
-void push() {
+void push(int outOfBounds) {
   if (currentState != PUSH) {
     setState(PUSH);
   }
 
-  int outOfBounds = isOutOfBounds();
   if (!outOfBounds) {
     setSpeed(100);
   } else {
