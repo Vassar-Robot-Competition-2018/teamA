@@ -19,13 +19,12 @@ typedef struct rgb {
 int baud = 9600;
 
 // Constants
-int leftFrontServoPin = 7; // Continuous rotation servo for left front wheel
-int rightFrontServoPin = 9; // Continuous rotation servo for right front wheel
-int leftBackServoPin = 6; // Continuous rotation servo for left back wheel
-int rightBackServoPin = 8; // Continuous rotation servo for right back wheel
-int sorterMechanismServoPin = 12; // Flippy Floppy McDoodle if Bad Block
-int doorMechanismServoPin = 13; //Door says come in!! or Don't!!
-int blockPresent = 0; // We start out without a block in the chamber.
+int leftFrontServoPin = 8; // Continuous rotation servo for left front wheel
+int rightFrontServoPin = 10; // Continuous rotation servo for right front wheel
+int leftBackServoPin = 9; // Continuous rotation servo for left back wheel
+int rightBackServoPin = 11; // Continuous rotation servo for right back wheel
+int sorterMechanismServoPin = 5; // Flippy Floppy McDoodle if Bad Block
+int doorMechanismServoPin = 6; //Door says come in!! or Don't!!
 
 // The threshold for the boundary lines
 // Setting to 100 temporarily. This will also catch the in-boundary lines,
@@ -53,17 +52,17 @@ Pixy pixy;
 Adafruit_TCS34725softi2c tcsFunnel = Adafruit_TCS34725softi2c(
                                        TCS34725_INTEGRATIONTIME_24MS,
                                        TCS34725_GAIN_1X,
-                                       38 /* SDA */, 39 /* SCL */);
+                                       34 /* SDA */, 35 /* SCL */);
 
 // Ground color sensors
 Adafruit_TCS34725softi2c tcsRight = Adafruit_TCS34725softi2c(
                                       TCS34725_INTEGRATIONTIME_24MS,
                                       TCS34725_GAIN_1X,
-                                      36 /* SDA */, 37 /* SCL */);
+                                      30 /* SDA */, 31 /* SCL */);
 Adafruit_TCS34725softi2c tcsLeft = Adafruit_TCS34725softi2c(
                                      TCS34725_INTEGRATIONTIME_24MS,
                                      TCS34725_GAIN_1X,
-                                     34 /* SDA */, 35 /* SCL */);
+                                     32 /* SDA */, 33 /* SCL */);
 
 rgb_t lastRGBSeen;
 
@@ -150,7 +149,7 @@ void loop() {
   setRGBLed(lastRGBSeen);
   if (currentState == PUSH) {
     push(outOfBounds);
-  
+
 
     if(blockPresent && isRedBlock(rF, gF, bF, cF)) {
       Serial.print("THERE IS A BLOCK");
@@ -164,7 +163,7 @@ void loop() {
       setSorterClosed();
       setDoorClosed();
     }
-    
+
   } else if (isSpinning()) {
     if (currentState == SPIN_BACKUP) {
       spinBackup();
@@ -228,8 +227,8 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
 
 void printBlockColors(uint16_t rF, uint16_t gF, uint16_t bF, uint16_t cF) {
   // MAKE SURE YELLOW IS HECKED FIRST!!!
-  
-  
+
+
   if (isYellowBlock(rF, gF, bF, cF)) {
     Serial.println("YELLOW!");
     blockPresent = 1;
@@ -247,7 +246,7 @@ void printBlockColors(uint16_t rF, uint16_t gF, uint16_t bF, uint16_t cF) {
     blockPresent = 0;
   }
 
- 
+
 }
 
 boolean isRedBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
