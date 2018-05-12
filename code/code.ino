@@ -132,7 +132,7 @@ void loop() {
   // Things to do every time no matter what
   printCurrentState();
   printColors();
-  setRGBLed(lastRGBSeen);
+//  setRGBLed(lastRGBSeen);
   if (currentState == PUSH) {
     push();
   } else if (isSpinning()) {
@@ -184,7 +184,7 @@ int isOutOfBounds() {
   tcsLeft.getRawData(&rL, &gL, &bL, &cL);
 
   boolean leftOutOfBounds = cL > 1200;
-  boolean rightOutOfBounds = cR > 1600;
+  boolean rightOutOfBounds = cR > 1200;
 
   Serial.print("cL: "); Serial.print(cL); Serial.print("; cR: "); Serial.println(cR);
 
@@ -314,12 +314,6 @@ void push() {
   int outOfBounds = isOutOfBounds();
   if (!outOfBounds) {
     setSpeed(100);
-  } else if (outOfBounds == LEFT_OUT) {
-    // Stop moving left wheel
-    setSpeed(-100, 100);
-  } else if (outOfBounds == RIGHT_OUT) {
-    // Stop moving right wheel
-    setSpeed(100, -100);
   } else {
     startSpinBackup(1000);
   }
