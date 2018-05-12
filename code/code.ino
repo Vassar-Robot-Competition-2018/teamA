@@ -25,6 +25,7 @@ int leftBackServoPin = 6; // Continuous rotation servo for left back wheel
 int rightBackServoPin = 8; // Continuous rotation servo for right back wheel
 int sorterMechanismServoPin = 12; // Flippy Floppy McDoodle if Bad Block
 int doorMechanismServoPin = 13; //Door says come in!! or Don't!!
+int blockPresent = 0; // We start out without a block in the chamber.
 
 // The threshold for the boundary lines
 // Setting to 100 temporarily. This will also catch the in-boundary lines,
@@ -97,6 +98,11 @@ void setup() {
   sorterMechanismServo.attach(sorterMechanismServoPin);
   doorMechanismServo.attach(doorMechanismServoPin);
 
+  setSorterClosed();
+//  delay(1000);
+//  setSorterOpen();
+//  delay(10000);
+
   // Initialize Pixy camera
   //  pixy.init();
 
@@ -144,6 +150,21 @@ void loop() {
   setRGBLed(lastRGBSeen);
   if (currentState == PUSH) {
     push(outOfBounds);
+  
+
+    if(blockPresent && isRedBlock(rF, gF, bF, cF)) {
+      Serial.print("THERE IS A BLOCK");
+      setDoorOpen();
+      delay(1000);
+//      setSorterOpen();
+    } else if(blockPresent) {
+      setSorterOpen();
+      delay(500);
+    } else {
+      setSorterClosed();
+      setDoorClosed();
+    }
+    
   } else if (isSpinning()) {
     if (currentState == SPIN_BACKUP) {
       spinBackup();
@@ -207,17 +228,26 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
 
 void printBlockColors(uint16_t rF, uint16_t gF, uint16_t bF, uint16_t cF) {
   // MAKE SURE YELLOW IS HECKED FIRST!!!
+  
+  
   if (isYellowBlock(rF, gF, bF, cF)) {
     Serial.println("YELLOW!");
+    blockPresent = 1;
   } else if (isRedBlock(rF, gF, bF, cF)) {
     Serial.println("RED!");
+    blockPresent = 1;
   } else if (isBlueBlock(rF, gF, bF, cF)) {
     Serial.println("BLUE!");
+    blockPresent = 1;
   } else if (isGreenBlock(rF, gF, bF, cF)) {
     Serial.println("GREEN!");
+    blockPresent = 1;
   } else {
     Serial.println("NO BLOCK...");
+    blockPresent = 0;
   }
+
+ 
 }
 
 boolean isRedBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
@@ -433,3 +463,21 @@ void setState(int state) {
   currentState = state;
   stateStartTime = millis();
 }
+
+
+void setSorterClosed() {
+  sorterMechanismServo.write(180);
+}
+
+void setSorterOpen() {
+  sorterMechanismServo.write(0);
+}
+
+void setDoorClosed() {
+  doorMechanismServo.write(0);
+}
+
+void setDoorOpen() {
+  doorMechanismServo.write(180);
+}
+
