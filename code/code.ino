@@ -8,8 +8,6 @@
 
 // Servo module
 #include <Servo.h>
-#include <SoftwareWire.h>
-#include <Wire.h>
 
 // Helpful rgb struct to store rgb values
 typedef struct rgb {
@@ -185,8 +183,8 @@ int isOutOfBounds() {
   tcsRight.getRawData(&rR, &gR, &bR, &cR);
   tcsLeft.getRawData(&rL, &gL, &bL, &cL);
 
-  boolean leftOutOfBounds = cL > 4300;
-  boolean rightOutOfBounds = cR > 3000;
+  boolean leftOutOfBounds = cL > 1200;
+  boolean rightOutOfBounds = cR > 1600;
 
   Serial.print("cL: "); Serial.print(cL); Serial.print("; cR: "); Serial.println(cR);
 
