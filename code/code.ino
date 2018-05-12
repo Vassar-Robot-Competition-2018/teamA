@@ -27,11 +27,16 @@ int sorterMechanismServoPin = 5; // Flippy Floppy McDoodle if Bad Block
 int doorMechanismServoPin = 6; //Door says come in!! or Don't!!
 
 int blockPresent = 0; // We start out without a block in the chamber.
-char homeColor = ""// 
 
+int COLOR_NONE = 0;
+int COLOR_RED = 1;
+int COLOR_BLUE = 2;
+int COLOR_YELLOW = 3;
+int COLOR_GREEN = 4;
 
-
-
+int homeColor = COLOR_NONE;
+int lastColorLeft = COLOR_NONE;
+int lastColorRight = COLOR_NONE;
 
 // The threshold for the boundary lines
 // Setting to 100 temporarily. This will also catch the in-boundary lines,
@@ -105,9 +110,9 @@ void setup() {
   doorMechanismServo.attach(doorMechanismServoPin);
 
   setSorterClosed();
-//  delay(1000);
-//  setSorterOpen();
-//  delay(10000);
+  //  delay(1000);
+  //  setSorterOpen();
+  //  delay(10000);
 
   // Initialize Pixy camera
   //  pixy.init();
@@ -149,6 +154,7 @@ void loop() {
 
   printCurrentState();
 
+  setQuadrantColors(rR, gR, bR, cR, rL, gL, bL, cL);
   printBlockColors(rF, gF, bF, cF);
 
   int outOfBounds = isOutOfBounds(rL, gL, bL, cL, rR, gR, bR, cR);
@@ -158,12 +164,12 @@ void loop() {
     push(outOfBounds);
 
 
-    if(blockPresent && isHomeBlock(rF, gF, bF, cF)) {
+    if (blockPresent && isHomeBlock(rF, gF, bF, cF)) {
       Serial.print("THERE IS A BLOCK");
       setDoorOpen();
       delay(1000);
-//      setSorterOpen();
-    } else if(blockPresent) {
+      //      setSorterOpen();
+    } else if (blockPresent) {
       setSorterOpen();
       delay(500);
     } else {
@@ -232,41 +238,45 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
   }
 }
 
-void printBlockColors(uint16_t rF, uint16_t gF, uint16_t bF, uint16_t cF) {
-  // MAKE SURE YELLOW IS CHECKED FIRST!!!
-
-
-  if (isYellowBlock(rF, gF, bF, cF)) {
-    if(homeColor == "") {
-      homeColor = "Yellow"
+void setQuadrantColors(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
+                       uint16_t rR, uint16_t gR, uint16_t bR, uint16_t cR) {
+  if (isYellowBlock(rL, gL, bL, cL) || isYellowBlock(rR, gR, bR, cR)) {
+    if (homeColor == COLOR_NONE) {
+      homeColor = COLOR_YELLOW;
     }
-    
+  } else if (isRedBlock(rL, gL, bL, cL) || isRedBlock(rR, gR, bR, cR)) {
+    if (homeColor == COLOR_NONE) {
+      homeColor = COLOR_RED;
+    }
+  } else if (isBlueBlock(rL, gL, bL, cL) || isBlueBlock(rR, gR, bR, cR)) {
+    if (homeColor == COLOR_NONE) {
+      homeColor = COLOR_BLUE;
+    }
+  } else if (isGreenBlock(rL, gL, bL, cL) || isGreenBlock(rR, gR, bR, cR)) {
+    if (homeColor == COLOR_NONE) {
+      homeColor = COLOR_GREEN;
+    }
+  }
+  homeColor = COLOR_RED;
+}
+
+void printBlockColors(uint16_t rF, uint16_t gF, uint16_t bF, uint16_t cF) {
+  if (isYellowBlock(rF, gF, bF, cF)) {
     Serial.println("YELLOW!");
     blockPresent = 1;
   } else if (isRedBlock(rF, gF, bF, cF)) {
-    if(homeColor == "") {
-      homeColor = "Red"
-    }
     Serial.println("RED!");
     blockPresent = 1;
   } else if (isBlueBlock(rF, gF, bF, cF)) {
-    if(homeColor == "") {
-      homeColor = "Blue"
-    }
     Serial.println("BLUE!");
     blockPresent = 1;
   } else if (isGreenBlock(rF, gF, bF, cF)) {
-    if(homeColor == "") {
-      homeColor = "Green"
-    }
     Serial.println("GREEN!");
     blockPresent = 1;
   } else {
     Serial.println("NO BLOCK...");
     blockPresent = 0;
   }
-
-
 }
 
 boolean isRedBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
@@ -351,15 +361,15 @@ boolean isGreen(uint16_t r, uint16_t g, uint16_t b) {
 }
 
 boolean isHomeBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  if(homeColor == "Green" && isGreen(r,g,b,c)) {
+  if (homeColor == COLOR_GREEN && isGreenBlock(r, g, b, c)) {
     return 1;
-  } else if (homeColor == "Blue" && isBlue(r,g,b,c)) {
+  } else if (homeColor == COLOR_BLUE && isBlueBlock(r, g, b, c)) {
     return 1;
-  } else if (homeColor == "Yellow" && isYellow(r,g,b,c)) {
-    return 1; 
-  } else if (homeColor == "Red" && isRed(r,g,b,c)) {
-    return 1; 
-  } else if (homeColor == "") {
+  } else if (homeColor == COLOR_YELLOW && isYellowBlock(r, g, b, c)) {
+    return 1;
+  } else if (homeColor == COLOR_RED && isRedBlock(r, g, b, c)) {
+    return 1;
+  } else if (homeColor == COLOR_NONE) {
     Serial.print("Home color has not been set");
   } else {
     return 0;
