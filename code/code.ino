@@ -8,6 +8,8 @@
 
 // Servo module
 #include <Servo.h>
+#include <SoftwareWire.h>
+#include <Wire.h>
 
 // Helpful rgb struct to store rgb values
 typedef struct rgb {
@@ -19,10 +21,10 @@ typedef struct rgb {
 int baud = 9600;
 
 // Constants
-int leftFrontServoPin = 8; // Continuous rotation servo for left front wheel
+int leftFrontServoPin = 7; // Continuous rotation servo for left front wheel
 int rightFrontServoPin = 9; // Continuous rotation servo for right front wheel
-int leftBackServoPin = 10; // Continuous rotation servo for left back wheel
-int rightBackServoPin = 11; // Continuous rotation servo for right back wheel
+int leftBackServoPin = 6; // Continuous rotation servo for left back wheel
+int rightBackServoPin = 8; // Continuous rotation servo for right back wheel
 int sorterMechanismServoPin = 12; // Flippy Floppy McDoodle if Bad Block
 int doorMechanismServoPin = 13; //Door says come in!! or Don't!!
 
