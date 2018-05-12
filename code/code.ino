@@ -26,6 +26,8 @@ int rightBackServoPin = 11; // Continuous rotation servo for right back wheel
 int sorterMechanismServoPin = 5; // Flippy Floppy McDoodle if Bad Block
 int doorMechanismServoPin = 6; //Door says come in!! or Don't!!
 
+int blockPresent = 0; // We start out without a block in the chamber.
+
 // The threshold for the boundary lines
 // Setting to 100 temporarily. This will also catch the in-boundary lines,
 // but we'll deal with that later
@@ -226,7 +228,7 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
 }
 
 void printBlockColors(uint16_t rF, uint16_t gF, uint16_t bF, uint16_t cF) {
-  // MAKE SURE YELLOW IS HECKED FIRST!!!
+  // MAKE SURE YELLOW IS CHECKED FIRST!!!
 
 
   if (isYellowBlock(rF, gF, bF, cF)) {
@@ -465,7 +467,7 @@ void setState(int state) {
 
 
 void setSorterClosed() {
-  sorterMechanismServo.write(180);
+  sorterMechanismServo.write(172);
 }
 
 void setSorterOpen() {
