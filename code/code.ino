@@ -512,7 +512,7 @@ void setState(int state) {
 
 
 void setSorterClosed() {
-  sorterMechanismServo.write(172);
+  sorterMechanismServo.write(175);
 }
 
 void setSorterOpen() {
