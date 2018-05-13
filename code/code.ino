@@ -19,7 +19,7 @@ typedef struct rgb {
 int baud = 9600;
 
 // Debug flag. Set to 1 if we want to print debug info
-boolean DEBUG = 0;
+boolean DEBUG = 1;
 
 // Constants
 int leftFrontServoPin = 8; // Continuous rotation servo for left front wheel
@@ -313,52 +313,64 @@ void setQuadrantColors(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
                        uint16_t rR, uint16_t gR, uint16_t bR, uint16_t cR) {
   // Set home color if we haven't already
   if (homeColor == COLOR_NULL) {
-    if (isYellowBlock(rL, gL, bL, cL) || isYellowBlock(rR, gR, bR, cR)) {
+    if (isYellowLineLeft(rL, gL, bL, cL) || isYellowLineRight(rR, gR, bR, cR)) {
+      debugln("YELLOW HOME QUADRANT");
       homeColor = COLOR_YELLOW;
-    } else if (isRedBlock(rL, gL, bL, cL) || isRedBlock(rR, gR, bR, cR)) {
+    } else if (isRedLineLeft(rL, gL, bL, cL) || isRedLineRight(rR, gR, bR, cR)) {
+      debugln("RED HOME QUADRANT");
       homeColor = COLOR_RED;
-    } else if (isBlueBlock(rL, gL, bL, cL) || isBlueBlock(rR, gR, bR, cR)) {
+    } else if (isBlueLineLeft(rL, gL, bL, cL) || isBlueLineRight(rR, gR, bR, cR)) {
+      debugln("BLUE HOME QUADRANT");
       homeColor = COLOR_BLUE;
-    } else if (isGreenBlock(rL, gL, bL, cL) || isGreenBlock(rR, gR, bR, cR)) {
+    } else if (isGreenLineLeft(rL, gL, bL, cL) || isGreenLineRight(rR, gR, bR, cR)) {
+      if (isGreenLineLeft(rL, gL, bL, cL)) {
+        debugln("GREEN LEFT");
+        debug("rL: "); debug(rL); debug(" gL: "); debug(gL); debug(" bL: "); debug(bL); debug(" cL: "); debugln(cL);
+      }
+      if (isGreenLineRight(rR, gR, bR, cR)) {
+        debugln("GREEN RIGHT");
+        debug("rR: "); debug(rR); debug(" gR: "); debug(gR); debug(" bR: "); debug(bR); debug(" cR: "); debugln(cR);
+      }
+      debugln("GREEN HOME QUADRANT");
       homeColor = COLOR_GREEN;
     }
   }
 
   // Set the last color seen for left wheel
-  if (isYellowBlock(rL, gL, bL, cL)) {
+  if (isYellowLineLeft(rL, gL, bL, cL)) {
     lastColorLeft = COLOR_YELLOW;
-  } else if (isGreenBlock(rL, gL, bL, cL)) {
+  } else if (isGreenLineLeft(rL, gL, bL, cL)) {
     lastColorLeft = COLOR_GREEN;
-  } else if (isBlueBlock(rL, gL, bL, cL)) {
+  } else if (isBlueLineLeft(rL, gL, bL, cL)) {
     lastColorLeft = COLOR_BLUE;
-  } else if (isRedBlock(rL, gL, bL, cL)) {
+  } else if (isRedLineLeft(rL, gL, bL, cL)) {
     lastColorLeft = COLOR_RED;
   }
 
   // Set last color seen for right wheel
-  if (isYellowBlock(rR, gR, bR, cR)) {
+  if (isYellowLineRight(rR, gR, bR, cR)) {
     lastColorRight = COLOR_YELLOW;
-  } else if (isGreenBlock(rR, gR, bR, cR)) {
+  } else if (isGreenLineRight(rR, gR, bR, cR)) {
     lastColorRight = COLOR_GREEN;
-  } else if (isBlueBlock(rR, gR, bR, cR)) {
+  } else if (isBlueLineRight(rR, gR, bR, cR)) {
     lastColorRight = COLOR_BLUE;
-  } else if (isRedBlock(rR, gR, bR, cR)) {
+  } else if (isRedLineRight(rR, gR, bR, cR)) {
     lastColorRight = COLOR_RED;
   }
 }
 
 void printBlockColors(uint16_t rF, uint16_t gF, uint16_t bF, uint16_t cF) {
   if (isYellowBlock(rF, gF, bF, cF)) {
-    debugln("YELLOW!");
+    debugln("YELLOW BLOCK!");
     blockPresent = 1;
   } else if (isRedBlock(rF, gF, bF, cF)) {
-    debugln("RED!");
+    debugln("RED BLOCK!");
     blockPresent = 1;
   } else if (isBlueBlock(rF, gF, bF, cF)) {
-    debugln("BLUE!");
+    debugln("BLUE BLOCK!");
     blockPresent = 1;
   } else if (isGreenBlock(rF, gF, bF, cF)) {
-    debugln("GREEN!");
+    debugln("GREEN BLOCK!");
     blockPresent = 1;
   } else {
     debugln("NO BLOCK...");
@@ -374,7 +386,11 @@ boolean isRedBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   return r > g && r > b && c > 200;
 }
 
-boolean isRedLine(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+boolean isRedLineLeft(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  return isRedBlock(r, g, b, c);
+}
+
+boolean isRedLineRight(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   return isRedBlock(r, g, b, c);
 }
 
@@ -384,7 +400,11 @@ boolean isBlueBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   return b > g && g > r && c > 400;
 }
 
-boolean isBlueLine(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+boolean isBlueLineLeft(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  return isBlueBlock(r, g, b, c);
+}
+
+boolean isBlueLineRight(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   return isBlueBlock(r, g, b, c);
 }
 
@@ -396,17 +416,25 @@ boolean isYellowBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   return r > g && g > b && c > 400;
 }
 
-boolean isYellowLine(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+boolean isYellowLineLeft(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  return isYellowBlock(r, g, b, c);
+}
+
+boolean isYellowLineRight(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   return isYellowBlock(r, g, b, c);
 }
 
 boolean isGreenBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   // green greatest
   // red & blue within 20 of eachother
-  return g > b && g > r && c > 400;
+  return g > b && g > r && c > 400 && g > (r + 75) && g > (b + 75);
 }
 
-boolean isGreenLine(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+boolean isGreenLineLeft(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  return isGreenBlock(r, g, b, c);
+}
+
+boolean isGreenLineRight(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   return isGreenBlock(r, g, b, c);
 }
 
@@ -567,15 +595,15 @@ void setRGBLed(rgb_t rgb) {
 }
 
 void setRGBLed() {
-  if (lastColorLeft == COLOR_NULL) {
+  if (homeColor == COLOR_NULL) {
     setRGBLed(setLastRGBSeen(255,255,255));
-  } else if (lastColorLeft == COLOR_RED) {
+  } else if (homeColor == COLOR_RED) {
     setRGBLed(setLastRGBSeen(255,0,0));
-  } else if (lastColorLeft == COLOR_GREEN) {
+  } else if (homeColor == COLOR_GREEN) {
     setRGBLed(setLastRGBSeen(0,255,0));
-  } else if (lastColorLeft == COLOR_BLUE) {
+  } else if (homeColor == COLOR_BLUE) {
     setRGBLed(setLastRGBSeen(0,0,255));
-  } else if (lastColorLeft == COLOR_YELLOW) {
+  } else if (homeColor == COLOR_YELLOW) {
     setRGBLed(setLastRGBSeen(255,255,0));
   } else {
     setRGBLed(setLastRGBSeen(0,0,0));
