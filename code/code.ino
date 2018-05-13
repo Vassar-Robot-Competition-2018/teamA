@@ -12,7 +12,7 @@
 int baud = 9600;
 
 // Debug flag. Set to 1 if we want to print debug info
-boolean DEBUG = 1;
+boolean DEBUG = 0;
 
 // Constants
 const int leftFrontServoPin = 8; // Continuous rotation servo for left front wheel
@@ -23,6 +23,8 @@ const int sorterMechanismServoPin = 5; // Flippy Floppy McDoodle if Bad Block
 const int doorMechanismServoPin = 6; //Door says come in!! or Don't!!
 
 int blockPresent = 0; // We start out without a block in the chamber.
+int blocksCaptured = 0; // Set an int to store the number of blocks we've captured
+
 
 const int COLOR_NULL = 0;
 const int COLOR_RED = 1;
@@ -227,6 +229,10 @@ void loop() {
       debug("THERE IS A BLOCK");
       setDoorOpen();
       delay(500);
+      blocksCaptured = blocksCaptured + 1;
+      Serial.print("WE HAVE CAPTURED: ");
+      Serial.print(blocksCaptured);
+      Serial.println(" BLOCKS");
     } else if (blockPresent) {
       setSorterOpen();
       delay(800);
