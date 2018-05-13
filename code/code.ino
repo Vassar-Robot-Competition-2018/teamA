@@ -229,7 +229,7 @@ void loop() {
       delay(500);
     } else if (blockPresent) {
       setSorterOpen();
-      delay(500);
+      delay(800);
     } else {
       setSorterClosed();
       setDoorClosed();
