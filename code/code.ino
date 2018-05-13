@@ -9,35 +9,30 @@
 // Servo module
 #include <Servo.h>
 
-// Helpful rgb struct to store rgb values
-typedef struct rgb {
-  int r;
-  int g;
-  int b;
-} rgb_t;
-
 int baud = 9600;
 
 // Debug flag. Set to 1 if we want to print debug info
 boolean DEBUG = 1;
 
 // Constants
-int leftFrontServoPin = 8; // Continuous rotation servo for left front wheel
-int rightFrontServoPin = 10; // Continuous rotation servo for right front wheel
-int leftBackServoPin = 9; // Continuous rotation servo for left back wheel
-int rightBackServoPin = 11; // Continuous rotation servo for right back wheel
-int sorterMechanismServoPin = 5; // Flippy Floppy McDoodle if Bad Block
-int doorMechanismServoPin = 6; //Door says come in!! or Don't!!
+const int leftFrontServoPin = 8; // Continuous rotation servo for left front wheel
+const int rightFrontServoPin = 10; // Continuous rotation servo for right front wheel
+const int leftBackServoPin = 9; // Continuous rotation servo for left back wheel
+const int rightBackServoPin = 11; // Continuous rotation servo for right back wheel
+const int sorterMechanismServoPin = 5; // Flippy Floppy McDoodle if Bad Block
+const int doorMechanismServoPin = 6; //Door says come in!! or Don't!!
 
 int blockPresent = 0; // We start out without a block in the chamber.
 
-int COLOR_NULL = 0;
-int COLOR_RED = 1;
-int COLOR_BLUE = 2;
-int COLOR_YELLOW = 3;
-int COLOR_GREEN = 4;
+const int COLOR_NULL = 0;
+const int COLOR_RED = 1;
+const int COLOR_BLUE = 2;
+const int COLOR_YELLOW = 3;
+const int COLOR_GREEN = 4;
 
 int homeColor = COLOR_NULL;
+int currentQuadrantColor = COLOR_NULL;
+int currentBlockColor = COLOR_NULL;
 int lastColorLeft = COLOR_NULL;
 int lastColorRight = COLOR_NULL;
 
@@ -47,10 +42,22 @@ int lastColorRight = COLOR_NULL;
 int leftSensorBoundaryThreshold = 100;
 int rightSensorBoundaryThreshold = 500;
 
-// Our RGB LED
-int redPin = 4;
-int greenPin = 3;
-int bluePin = 2;
+/** RGB LED Pins **/
+
+// LED for home quadrant
+const int homeLEDRedPin = 4;
+const int homeLEDGreenPin = 3;
+const int homeLEDBluePin = 2;
+
+// LED for current quadrant
+const int quadrantLEDRedPin = 22;
+const int quadrantLEDGreenPin = 23;
+const int quadrantLEDBluePin = 24;
+
+// LED for current block
+const int blockLEDRedPin = 25;
+const int blockLEDGreenPin = 26;
+const int blockLEDBluePin = 27;
 
 // Servos
 Servo leftFrontServo;
@@ -78,8 +85,6 @@ Adafruit_TCS34725softi2c tcsLeft = Adafruit_TCS34725softi2c(
                                      TCS34725_INTEGRATIONTIME_24MS,
                                      TCS34725_GAIN_1X,
                                      32 /* SDA */, 33 /* SCL */);
-
-rgb_t lastRGBSeen;
 
 // States
 int currentState;
@@ -178,11 +183,20 @@ void setup() {
     fail();
   }
 
-  // Set RGB Output
-  pinMode(redPin, OUTPUT);
-  pinMode(greenPin, OUTPUT);
-  pinMode(bluePin, OUTPUT);
-  setRGBLed(setLastRGBSeen(255, 255, 255));
+  // Initialize LEDs
+  pinMode(homeLEDRedPin, OUTPUT);
+  pinMode(homeLEDGreenPin, OUTPUT);
+  pinMode(homeLEDBluePin, OUTPUT);
+
+  pinMode(quadrantLEDRedPin, OUTPUT);
+  pinMode(quadrantLEDGreenPin, OUTPUT);
+  pinMode(quadrantLEDBluePin, OUTPUT);
+
+  pinMode(blockLEDRedPin, OUTPUT);
+  pinMode(blockLEDGreenPin, OUTPUT);
+  pinMode(blockLEDBluePin, OUTPUT);
+
+  setLEDsFromState();
 
   // Set initial state
   setState(PUSH);
@@ -190,6 +204,9 @@ void setup() {
 
 //Code that continuously runs on Arduino
 void loop() {
+  // Some line padding for each loop iteration
+  debugln("");
+
   // Things to do every time no matter what
   uint16_t rF, bF, gF, cF, rR, gR, bR, cR, rL, gL, bL, cL;
   tcsRight.getRawData(&rR, &gR, &bR, &cR);
@@ -203,14 +220,13 @@ void loop() {
 
   int outOfBounds = isOutOfBounds(rL, gL, bL, cL, rR, gR, bR, cR);
 
-  setRGBLed();
   if (currentState == PUSH) {
     push(outOfBounds);
 
     if (blockPresent && isHomeBlock(rF, gF, bF, cF)) {
       debug("THERE IS A BLOCK");
       setDoorOpen();
-      delay(1000);
+      delay(500);
     } else if (blockPresent) {
       setSorterOpen();
       delay(500);
@@ -295,7 +311,7 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
   boolean leftOutOfBounds = cL > 1200;
   boolean rightOutOfBounds = cR > 1200;
 
-  debug("cL: "); debug(cL); debug("; cR: "); debugln(cR);
+//  debug("cL: "); debug(cL); debug("; cR: "); debugln(cR);
 
   if (leftOutOfBounds && rightOutOfBounds) {
     return BOTH_OUT;
@@ -314,25 +330,13 @@ void setQuadrantColors(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
   // Set home color if we haven't already
   if (homeColor == COLOR_NULL) {
     if (isYellowLineLeft(rL, gL, bL, cL) || isYellowLineRight(rR, gR, bR, cR)) {
-      debugln("YELLOW HOME QUADRANT");
-      homeColor = COLOR_YELLOW;
+      setHomeQuadrant(COLOR_YELLOW);
     } else if (isRedLineLeft(rL, gL, bL, cL) || isRedLineRight(rR, gR, bR, cR)) {
-      debugln("RED HOME QUADRANT");
-      homeColor = COLOR_RED;
+      setHomeQuadrant(COLOR_RED);
     } else if (isBlueLineLeft(rL, gL, bL, cL) || isBlueLineRight(rR, gR, bR, cR)) {
-      debugln("BLUE HOME QUADRANT");
-      homeColor = COLOR_BLUE;
+      setHomeQuadrant(COLOR_BLUE);
     } else if (isGreenLineLeft(rL, gL, bL, cL) || isGreenLineRight(rR, gR, bR, cR)) {
-      if (isGreenLineLeft(rL, gL, bL, cL)) {
-        debugln("GREEN LEFT");
-        debug("rL: "); debug(rL); debug(" gL: "); debug(gL); debug(" bL: "); debug(bL); debug(" cL: "); debugln(cL);
-      }
-      if (isGreenLineRight(rR, gR, bR, cR)) {
-        debugln("GREEN RIGHT");
-        debug("rR: "); debug(rR); debug(" gR: "); debug(gR); debug(" bR: "); debug(bR); debug(" cR: "); debugln(cR);
-      }
-      debugln("GREEN HOME QUADRANT");
-      homeColor = COLOR_GREEN;
+      setHomeQuadrant(COLOR_GREEN);
     }
   }
 
@@ -357,24 +361,123 @@ void setQuadrantColors(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
   } else if (isRedLineRight(rR, gR, bR, cR)) {
     lastColorRight = COLOR_RED;
   }
+
+  if (lastColorLeft == lastColorRight) {
+    setCurrentQuadrant(lastColorLeft);
+  }
 }
 
 void printBlockColors(uint16_t rF, uint16_t gF, uint16_t bF, uint16_t cF) {
   if (isYellowBlock(rF, gF, bF, cF)) {
-    debugln("YELLOW BLOCK!");
-    blockPresent = 1;
+    setCurrentBlock(COLOR_YELLOW);
   } else if (isRedBlock(rF, gF, bF, cF)) {
-    debugln("RED BLOCK!");
-    blockPresent = 1;
+    setCurrentBlock(COLOR_RED);
   } else if (isBlueBlock(rF, gF, bF, cF)) {
-    debugln("BLUE BLOCK!");
-    blockPresent = 1;
+    setCurrentBlock(COLOR_BLUE);
   } else if (isGreenBlock(rF, gF, bF, cF)) {
-    debugln("GREEN BLOCK!");
-    blockPresent = 1;
+    setCurrentBlock(COLOR_GREEN);
   } else {
-    debugln("NO BLOCK...");
-    blockPresent = 0;
+    setCurrentBlock(COLOR_NULL);
+  }
+}
+
+/** State Setters **/
+
+void setHomeQuadrant(int color) {
+  homeColor = color;
+  debug("Home Quadrant Color: ");
+  switch (color) {
+    case COLOR_NULL:
+      debugln("NULL");
+      setRGBLed(homeLEDRedPin, homeLEDGreenPin, homeLEDBluePin, 0, 0, 0);
+      break;
+    case COLOR_RED:
+      debugln("RED");
+      setRGBLed(homeLEDRedPin, homeLEDGreenPin, homeLEDBluePin, 255, 0, 0);
+      break;
+    case COLOR_GREEN:
+      debugln("GREEN");
+      setRGBLed(homeLEDRedPin, homeLEDGreenPin, homeLEDBluePin, 0, 255, 0);
+      break;
+    case COLOR_BLUE:
+      debugln("BLUE");
+      setRGBLed(homeLEDRedPin, homeLEDGreenPin, homeLEDBluePin, 0, 0, 255);
+      break;
+    case COLOR_YELLOW:
+      debugln("YELLOW");
+      setRGBLed(homeLEDRedPin, homeLEDGreenPin, homeLEDBluePin, 255, 255, 0);
+      break;
+    default:
+      error("Invalid home quadrant color");
+      error(color);
+      fail();
+  }
+}
+
+void setCurrentQuadrant(int color) {
+  currentQuadrantColor = color;
+  debug("Current Quadrant Color: ");
+  switch (color) {
+    case COLOR_NULL:
+      debugln("NULL");
+      setRGBLed(quadrantLEDRedPin, quadrantLEDGreenPin, quadrantLEDBluePin, 255, 0, 0);
+      break;
+    case COLOR_RED:
+      debugln("RED");
+      setRGBLed(quadrantLEDRedPin, quadrantLEDGreenPin, quadrantLEDBluePin, 255, 0, 0);
+      break;
+    case COLOR_GREEN:
+      debugln("GREEN");
+      setRGBLed(quadrantLEDRedPin, quadrantLEDGreenPin, quadrantLEDBluePin, 0, 255, 0);
+      break;
+    case COLOR_BLUE:
+      debugln("BLUE");
+      setRGBLed(quadrantLEDRedPin, quadrantLEDGreenPin, quadrantLEDBluePin, 0, 0, 255);
+      break;
+    case COLOR_YELLOW:
+      debugln("YELLOW");
+      setRGBLed(quadrantLEDRedPin, quadrantLEDGreenPin, quadrantLEDBluePin, 255, 255, 0);
+      break;
+    default:
+      error("Invalid current quadrant color");
+      error(color);
+      fail();
+  }
+}
+
+void setCurrentBlock(int color) {
+  currentBlockColor = color;
+  debug("Block Color: ");
+  switch (color) {
+    case COLOR_NULL:
+      debugln("NULL");
+      setRGBLed(blockLEDRedPin, blockLEDGreenPin, blockLEDBluePin, 0, 0, 0);
+      blockPresent = 0;
+      break;
+    case COLOR_RED:
+      debugln("RED");
+      setRGBLed(blockLEDRedPin, blockLEDGreenPin, blockLEDBluePin, 255, 0, 0);
+      blockPresent = 1;
+      break;
+    case COLOR_GREEN:
+      debugln("GREEN");
+      setRGBLed(blockLEDRedPin, blockLEDGreenPin, blockLEDBluePin, 0, 255, 0);
+      blockPresent = 1;
+      break;
+    case COLOR_BLUE:
+      debugln("BLUE");
+      setRGBLed(blockLEDRedPin, blockLEDGreenPin, blockLEDBluePin, 0, 0, 255);
+      blockPresent = 1;
+      break;
+    case COLOR_YELLOW:
+      debugln("YELLOW");
+      setRGBLed(blockLEDRedPin, blockLEDGreenPin, blockLEDBluePin, 255, 255, 0);
+      blockPresent = 1;
+      break;
+    default:
+      error("Invalid color");
+      error(color);
+      fail();
   }
 }
 
@@ -443,6 +546,7 @@ boolean isGreenLineRight(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
 boolean isHomeBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   if (homeColor == COLOR_NULL) {
     debug("Home color has not been set");
+    return 0;
   } else if (homeColor == COLOR_YELLOW && isYellowBlock(r, g, b, c)) {
     return 1;
   } else if (homeColor == COLOR_BLUE && isBlueBlock(r, g, b, c)) {
@@ -575,42 +679,23 @@ int randomInt(int min, int max) {
   return min + rand() % (max + 1 - min);
 }
 
-rgb_t setLastRGBSeen(uint16_t r, uint16_t g, uint16_t b) {
-  lastRGBSeen.r = r;
-  lastRGBSeen.g = g;
-  lastRGBSeen.b = b;
-  return lastRGBSeen;
+void setLEDsFromState() {
+  setHomeQuadrant(homeColor);
+  setCurrentBlock(currentBlockColor);
+  setCurrentQuadrant(currentQuadrantColor);
 }
 
-void setRGBLed(rgb_t rgb) {
+void setRGBLed(int redPin, int greenPin, int bluePin,
+               uint16_t r, uint16_t g, uint16_t b) {
   // If you are using a common *ANODE LED* instead of common
   // CATHODE, connect the long pin to +5 instead of ground
   // We are using ANODE, invert the color values
-  int red = 255 - rgb.r;
-  int green = 255 - rgb.g;
-  int blue = 255 - rgb.b;
-  digitalWrite(redPin, red);
-  digitalWrite(greenPin, green);
-  digitalWrite(bluePin, blue);
-}
-
-void setRGBLed() {
-  if (homeColor == COLOR_NULL) {
-    setRGBLed(setLastRGBSeen(255,255,255));
-  } else if (homeColor == COLOR_RED) {
-    setRGBLed(setLastRGBSeen(255,0,0));
-  } else if (homeColor == COLOR_GREEN) {
-    setRGBLed(setLastRGBSeen(0,255,0));
-  } else if (homeColor == COLOR_BLUE) {
-    setRGBLed(setLastRGBSeen(0,0,255));
-  } else if (homeColor == COLOR_YELLOW) {
-    setRGBLed(setLastRGBSeen(255,255,0));
-  } else {
-    setRGBLed(setLastRGBSeen(0,0,0));
-    error("lastColorLeft has invalid value");
-    error(lastColorLeft);
-    fail();
-  }
+  int red = 255 - r;
+  int green = 255 - g;
+  int blue = 255 - b;
+  analogWrite(redPin, red);
+  analogWrite(greenPin, green);
+  analogWrite(bluePin, blue);
 }
 
 void setSpeed(int speed) {
