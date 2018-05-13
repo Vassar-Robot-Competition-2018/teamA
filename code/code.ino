@@ -115,7 +115,7 @@ void setup() {
   //  delay(10000);
 
   // Initialize Pixy camera
-  //  pixy.init();
+  pixy.init();
 
   // Init all color sensors
   if (tcsLeft.begin()) {
@@ -213,6 +213,39 @@ void printCurrentState() {
       Serial.print(currentState);
       Serial.println(": INVALID STATE");
   }
+}
+
+boolean isHomeBlock(int signature) {
+  return signature == homeColor;
+}
+
+// Finds the biggest block and returns a pointer to it
+Block* findBestBlock(Block** blocks, int len) {
+  Block* result;
+  int i;
+
+  result = blocks[0];
+
+  for (i = 1; i < len; i++) {
+    if (isBlock(&pixy.blocks[i])) {
+      int resultArea = result->width * result->height;
+      int currentArea = pixy.blocks[i].width * pixy.blocks[i].height;
+      if (resultArea < currentArea && isHomeBlock(pixy.blocks[i].signature)) {
+        result = &pixy.blocks[i];
+      }
+    }
+  }
+
+  return result;
+}
+
+boolean isBlock(Block* block) {
+  int width = block->width;
+  int height = block->height;
+  int x = block->x;
+  int y = block->y;
+  
+  return (width >= 0.9 * height) && (width <= 1.3 * height);
 }
 
 bool isSpinning() {
@@ -445,9 +478,47 @@ void push(int outOfBounds) {
   }
 
   if (!outOfBounds) {
-    setSpeed(100);
+    followBlocks();
   } else {
     startSpinBackup(1000);
+  }
+}
+
+void followBlocks() {
+  int j;
+  int x;
+  float leftSpeed;
+  float rightSpeed;
+  uint16_t blocks;
+
+  blocks = pixy.getBlocks();
+
+  if (blocks) {
+    Block* block = findBestBlock(&pixy.blocks, blocks);
+    if(isHomeBlock(block->signature)) {
+      // block->print();
+      // center is 160
+      x = block->x - 160;
+      Serial.println(x);
+      if (x >= 0) {
+        leftSpeed = min(100, 100 - 100 * (sqrt(x) / -sqrt(160.0)));
+        rightSpeed = min(100, 100 - 100 * (sqrt(x) / sqrt(160.0)));
+      } else {
+        leftSpeed = min(100, 100 - 100 * (-sqrt(-x) / -sqrt(160.0)));
+        rightSpeed = min(100, 100 - 100 * (-sqrt(-x) / sqrt(160.0)));
+      }
+      //    Serial.print("X: "); Serial.println(x);
+      //    Serial.print("L Speed: "); Serial.println(leftSpeed);
+      //    Serial.print("R Speed: "); Serial.println(rightSpeed);
+      //    Serial.println();
+      setSpeed(leftSpeed, rightSpeed);
+    } else {
+      Serial.println("No home blocks in frame");
+      setSpeed(100);
+    }
+  } else {
+    Serial.println("No blocks");
+    setSpeed(100);
   }
 }
 
