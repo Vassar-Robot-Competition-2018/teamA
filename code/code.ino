@@ -478,7 +478,8 @@ void push(int outOfBounds) {
   }
 
   if (!outOfBounds) {
-    followBlocks();
+    setSpeed(100);
+//    followBlocks();
   } else {
     startSpinBackup(1000);
   }
