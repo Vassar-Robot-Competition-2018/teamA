@@ -18,6 +18,9 @@ typedef struct rgb {
 
 int baud = 9600;
 
+// Debug flag. Set to 1 if we want to print debug info
+boolean DEBUG = 0;
+
 // Constants
 int leftFrontServoPin = 8; // Continuous rotation servo for left front wheel
 int rightFrontServoPin = 10; // Continuous rotation servo for right front wheel
@@ -28,15 +31,15 @@ int doorMechanismServoPin = 6; //Door says come in!! or Don't!!
 
 int blockPresent = 0; // We start out without a block in the chamber.
 
-int COLOR_NONE = 0;
+int COLOR_NULL = 0;
 int COLOR_RED = 1;
 int COLOR_BLUE = 2;
 int COLOR_YELLOW = 3;
 int COLOR_GREEN = 4;
 
-int homeColor = COLOR_NONE;
-int lastColorLeft = COLOR_NONE;
-int lastColorRight = COLOR_NONE;
+int homeColor = COLOR_NULL;
+int lastColorLeft = COLOR_NULL;
+int lastColorRight = COLOR_NULL;
 
 // The threshold for the boundary lines
 // Setting to 100 temporarily. This will also catch the in-boundary lines,
@@ -45,9 +48,9 @@ int leftSensorBoundaryThreshold = 100;
 int rightSensorBoundaryThreshold = 500;
 
 // Our RGB LED
-int redPin = 2;
+int redPin = 4;
 int greenPin = 3;
-int bluePin = 4;
+int bluePin = 2;
 
 // Servos
 Servo leftFrontServo;
@@ -96,6 +99,45 @@ int LEFT_OUT = 40;
 int RIGHT_OUT = 41;
 int BOTH_OUT = 42;
 
+void debugln(String msg) {
+  if (DEBUG) {
+    Serial.println(msg);
+  }
+}
+
+void debug(String msg) {
+  if (DEBUG) {
+    Serial.print(msg);
+  }
+}
+
+void debugln(long msg) {
+  if (DEBUG) {
+    Serial.println(msg);
+  }
+}
+
+void debug(long msg) {
+  if (DEBUG) {
+    Serial.print(msg);
+  }
+}
+
+void error(String message) {
+  Serial.print("ERROR: ");
+  Serial.println(message);
+}
+
+void error(long msg) {
+  Serial.print("ERROR: ");
+  Serial.println(msg);
+}
+
+void fail() {
+  stopDriving();
+  while (1); // Stop doing everything
+}
+
 void setup() {
   Serial.begin(baud);
   Serial.print("Starting...\n");
@@ -109,29 +151,31 @@ void setup() {
   sorterMechanismServo.attach(sorterMechanismServoPin);
   doorMechanismServo.attach(doorMechanismServoPin);
 
+  // Initialize sorting mechanism
   setSorterClosed();
-  //  delay(1000);
-  //  setSorterOpen();
-  //  delay(10000);
+  setDoorClosed();
 
   // Initialize Pixy camera
   pixy.init();
 
   // Init all color sensors
   if (tcsLeft.begin()) {
-    Serial.println("tcsLeft working");
+    debugln("tcsLeft working");
   } else {
     error("Couldn't find tcsLeft");
+    fail();
   }
   if (tcsRight.begin()) {
-    Serial.println("tcsRight working");
+    debugln("tcsRight working");
   } else {
     error("Couldn't find tcsRight");
+    fail();
   }
   if (tcsFunnel.begin()) {
-    Serial.println("tcsFunnel working");
+    debugln("tcsFunnel working");
   } else {
     error("Couldn't find tcsFunnel");
+    fail();
   }
 
   // Set RGB Output
@@ -159,16 +203,14 @@ void loop() {
 
   int outOfBounds = isOutOfBounds(rL, gL, bL, cL, rR, gR, bR, cR);
 
-  setRGBLed(lastRGBSeen);
+  setRGBLed();
   if (currentState == PUSH) {
     push(outOfBounds);
 
-
     if (blockPresent && isHomeBlock(rF, gF, bF, cF)) {
-      Serial.print("THERE IS A BLOCK");
+      debug("THERE IS A BLOCK");
       setDoorOpen();
       delay(1000);
-      //      setSorterOpen();
     } else if (blockPresent) {
       setSorterOpen();
       delay(500);
@@ -184,34 +226,29 @@ void loop() {
       spin();
     } else {
       error("INVALID SPIN STATE");
+      fail();
     }
   } else {
     error("INVALID STATE");
+    fail();
   }
 }
 
-void error(String message) {
-  Serial.print("ERROR: ");
-  Serial.println(message);
-  stopDriving();
-  while (1); // Stop doing everything
-}
-
 void printCurrentState() {
-  Serial.print("Current State: ");
+  debug("Current State: ");
   switch (currentState) {
     case 2:
-      Serial.println("SPIN_BACKUP");
+      debugln("SPIN_BACKUP");
       break;
     case 3:
-      Serial.println("SPIN_SPIN");
+      debugln("SPIN_SPIN");
       break;
     case 4:
-      Serial.println("PUSH");
+      debugln("PUSH");
       break;
     default:
-      Serial.print(currentState);
-      Serial.println(": INVALID STATE");
+      debug(currentState);
+      debugln(": INVALID STATE");
   }
 }
 
@@ -244,8 +281,8 @@ boolean isBlock(Block* block) {
   int height = block->height;
   int x = block->x;
   int y = block->y;
-  
-  return (width >= 0.9 * height) && (width <= 1.3 * height);
+
+  return (width >= 0.9 * height) && (width <= 1.5 * height);
 }
 
 bool isSpinning() {
@@ -258,7 +295,7 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
   boolean leftOutOfBounds = cL > 1200;
   boolean rightOutOfBounds = cR > 1200;
 
-  Serial.print("cL: "); Serial.print(cL); Serial.print("; cR: "); Serial.println(cR);
+  debug("cL: "); debug(cL); debug("; cR: "); debugln(cR);
 
   if (leftOutOfBounds && rightOutOfBounds) {
     return BOTH_OUT;
@@ -271,46 +308,65 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
   }
 }
 
+// Set the home color and last seen left and right wheel colors
 void setQuadrantColors(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
                        uint16_t rR, uint16_t gR, uint16_t bR, uint16_t cR) {
-  if (isYellowBlock(rL, gL, bL, cL) || isYellowBlock(rR, gR, bR, cR)) {
-    if (homeColor == COLOR_NONE) {
+  // Set home color if we haven't already
+  if (homeColor == COLOR_NULL) {
+    if (isYellowBlock(rL, gL, bL, cL) || isYellowBlock(rR, gR, bR, cR)) {
       homeColor = COLOR_YELLOW;
-    }
-  } else if (isRedBlock(rL, gL, bL, cL) || isRedBlock(rR, gR, bR, cR)) {
-    if (homeColor == COLOR_NONE) {
+    } else if (isRedBlock(rL, gL, bL, cL) || isRedBlock(rR, gR, bR, cR)) {
       homeColor = COLOR_RED;
-    }
-  } else if (isBlueBlock(rL, gL, bL, cL) || isBlueBlock(rR, gR, bR, cR)) {
-    if (homeColor == COLOR_NONE) {
+    } else if (isBlueBlock(rL, gL, bL, cL) || isBlueBlock(rR, gR, bR, cR)) {
       homeColor = COLOR_BLUE;
-    }
-  } else if (isGreenBlock(rL, gL, bL, cL) || isGreenBlock(rR, gR, bR, cR)) {
-    if (homeColor == COLOR_NONE) {
+    } else if (isGreenBlock(rL, gL, bL, cL) || isGreenBlock(rR, gR, bR, cR)) {
       homeColor = COLOR_GREEN;
     }
   }
-  homeColor = COLOR_RED;
+
+  // Set the last color seen for left wheel
+  if (isYellowBlock(rL, gL, bL, cL)) {
+    lastColorLeft = COLOR_YELLOW;
+  } else if (isGreenBlock(rL, gL, bL, cL)) {
+    lastColorLeft = COLOR_GREEN;
+  } else if (isBlueBlock(rL, gL, bL, cL)) {
+    lastColorLeft = COLOR_BLUE;
+  } else if (isRedBlock(rL, gL, bL, cL)) {
+    lastColorLeft = COLOR_RED;
+  }
+
+  // Set last color seen for right wheel
+  if (isYellowBlock(rR, gR, bR, cR)) {
+    lastColorRight = COLOR_YELLOW;
+  } else if (isGreenBlock(rR, gR, bR, cR)) {
+    lastColorRight = COLOR_GREEN;
+  } else if (isBlueBlock(rR, gR, bR, cR)) {
+    lastColorRight = COLOR_BLUE;
+  } else if (isRedBlock(rR, gR, bR, cR)) {
+    lastColorRight = COLOR_RED;
+  }
 }
 
 void printBlockColors(uint16_t rF, uint16_t gF, uint16_t bF, uint16_t cF) {
   if (isYellowBlock(rF, gF, bF, cF)) {
-    Serial.println("YELLOW!");
+    debugln("YELLOW!");
     blockPresent = 1;
   } else if (isRedBlock(rF, gF, bF, cF)) {
-    Serial.println("RED!");
+    debugln("RED!");
     blockPresent = 1;
   } else if (isBlueBlock(rF, gF, bF, cF)) {
-    Serial.println("BLUE!");
+    debugln("BLUE!");
     blockPresent = 1;
   } else if (isGreenBlock(rF, gF, bF, cF)) {
-    Serial.println("GREEN!");
+    debugln("GREEN!");
     blockPresent = 1;
   } else {
-    Serial.println("NO BLOCK...");
+    debugln("NO BLOCK...");
     blockPresent = 0;
   }
 }
+
+/** Color detection **/
 
 boolean isRedBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   // red greater than green & blue
@@ -318,10 +374,18 @@ boolean isRedBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   return r > g && r > b && c > 200;
 }
 
+boolean isRedLine(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  return isRedBlock(r, g, b, c);
+}
+
 boolean isBlueBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   // blue is greatest
   // red is least
   return b > g && g > r && c > 400;
+}
+
+boolean isBlueLine(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  return isBlueBlock(r, g, b, c);
 }
 
 boolean isYellowBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
@@ -332,83 +396,38 @@ boolean isYellowBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   return r > g && g > b && c > 400;
 }
 
+boolean isYellowLine(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  return isYellowBlock(r, g, b, c);
+}
+
 boolean isGreenBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
   // green greatest
   // red & blue within 20 of eachother
   return g > b && g > r && c > 400;
 }
 
-//void printColors() {
-//  uint16_t rR, gR, bR, cR, rL, gL, bL, cL;
-//  tcsRight.getRawData(&rR, &gR, &bR, &cR);
-//  tcsLeft.getRawData(&rL, &gL, &bL, &cL);
-//  //  Serial.print("R: "); Serial.print(rL, DEC); Serial.print(" ");
-//  //  Serial.print("G: "); Serial.print(gL, DEC); Serial.print(" ");
-//  //  Serial.print("B: "); Serial.print(bL, DEC); Serial.print(" ");
-//  //  Serial.print("C: "); Serial.print(cL, DEC); Serial.print(" ");
-//  //  Serial.println(" ");
-//  //  Serial.print("R: "); Serial.print(rR, DEC); Serial.print(" ");
-//  //  Serial.print("G: "); Serial.print(gR, DEC); Serial.print(" ");
-//  //  Serial.print("B: "); Serial.print(bR, DEC); Serial.print(" ");
-//  //  Serial.print("C: "); Serial.print(cR, DEC); Serial.print(" ");
-//  //  Serial.println(" ");
-//  if (isGreen(rR, gR, bR) || isGreen(rL, gL, bL)) {
-//    Serial.println("GREEN!");
-//    setLastRGBSeen(0, 255, 0);
-//  } else if (isRed(rR, gR, bR) || isRed(rL, gL, bL)) {
-//    Serial.println("RED!");
-//    setLastRGBSeen(255, 0, 0);
-//  } else if (isBlue(rR, gR, bR) || isBlue(rL, gL, bL)) {
-//    Serial.println("BLUE!");
-//    setLastRGBSeen(0, 0, 255);
-//  } else if (isYellow(rR, gR, bR) || isYellow(rL, gL, bL)) {
-//    Serial.println("YELLOW!");
-//    setLastRGBSeen(255, 255, 0);
-//  }
-//}
-
-boolean isRed(uint16_t r, uint16_t g, uint16_t b) {
-  // red greater than green & blue
-  // green & blue within 30 of eachother
-  return r > 300 && g < 150 && b < 150;
+boolean isGreenLine(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
+  return isGreenBlock(r, g, b, c);
 }
 
-boolean isBlue(uint16_t r, uint16_t g, uint16_t b) {
-  // blue is greatest
-  // red is least
-  return b > g && g > r;
-}
-
-boolean isYellow(uint16_t r, uint16_t g, uint16_t b) {
-  // red most
-  // green middle
-  // blue least
-  // red & green within 200 of eachother
-  return r > 700 && g > 600 && b < 500;
-}
-
-boolean isGreen(uint16_t r, uint16_t g, uint16_t b) {
-  // green greatest
-  // red & blue within 20 of eachother
-  return g > 500 && b < 500 && r < 500;
-}
-
+// Returns true if the given block colors are the same as the home
+// quadrant color
 boolean isHomeBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  if (homeColor == COLOR_GREEN && isGreenBlock(r, g, b, c)) {
+  if (homeColor == COLOR_NULL) {
+    debug("Home color has not been set");
+  } else if (homeColor == COLOR_YELLOW && isYellowBlock(r, g, b, c)) {
     return 1;
   } else if (homeColor == COLOR_BLUE && isBlueBlock(r, g, b, c)) {
     return 1;
-  } else if (homeColor == COLOR_YELLOW && isYellowBlock(r, g, b, c)) {
+  } else if (homeColor == COLOR_GREEN && isGreenBlock(r, g, b, c)) {
     return 1;
   } else if (homeColor == COLOR_RED && isRedBlock(r, g, b, c)) {
     return 1;
-  } else if (homeColor == COLOR_NONE) {
-    Serial.print("Home color has not been set");
   } else {
+    // Input block is not a color
     return 0;
   }
 }
-
 
 // Drive the robot forward at a constant speed
 void drive() {
@@ -435,12 +454,12 @@ void startSpinning(int time) {
 // Continue spinning right
 void spin() {
   int timeLeft = spinTime - (millis() - stateStartTime);
-  Serial.println("SPINNING!");
-  Serial.print(millis());
-  Serial.print(" ");
-  Serial.println(stateStartTime);
-  Serial.print("TIME LEFT: ");
-  Serial.println(timeLeft);
+  debugln("SPINNING!");
+  debug(millis());
+  debug(" ");
+  debugln(stateStartTime);
+  debug("TIME LEFT: ");
+  debugln(timeLeft);
 
   if (timeLeft <= 0) {
     setState(PUSH);
@@ -463,8 +482,8 @@ void spinBackup() {
     setState(SPIN_BACKUP);
   }
   int timeLeft = backupTime - (millis() - stateStartTime);
-  Serial.print("TIME LEFT: ");
-  Serial.println(timeLeft);
+  debug("TIME LEFT: ");
+  debugln(timeLeft);
   if (timeLeft <= 0) {
     startSpinning(randomInt(2000, 3500));
     return;
@@ -479,12 +498,13 @@ void push(int outOfBounds) {
 
   if (!outOfBounds) {
     setSpeed(100);
-//    followBlocks();
+    //    followBlocks(); // Uses Pixy
   } else {
     startSpinBackup(1000);
   }
 }
 
+// Follow blocks based on information from the Pixy camera
 void followBlocks() {
   int j;
   int x;
@@ -496,11 +516,11 @@ void followBlocks() {
 
   if (blocks) {
     Block* block = findBestBlock(&pixy.blocks, blocks);
-    if(isHomeBlock(block->signature)) {
+    if (isHomeBlock(block->signature)) {
       // block->print();
       // center is 160
       x = block->x - 160;
-      Serial.println(x);
+      debugln(x);
       if (x >= 0) {
         leftSpeed = min(100, 100 - 100 * (sqrt(x) / -sqrt(160.0)));
         rightSpeed = min(100, 100 - 100 * (sqrt(x) / sqrt(160.0)));
@@ -508,17 +528,17 @@ void followBlocks() {
         leftSpeed = min(100, 100 - 100 * (-sqrt(-x) / -sqrt(160.0)));
         rightSpeed = min(100, 100 - 100 * (-sqrt(-x) / sqrt(160.0)));
       }
-      //    Serial.print("X: "); Serial.println(x);
-      //    Serial.print("L Speed: "); Serial.println(leftSpeed);
-      //    Serial.print("R Speed: "); Serial.println(rightSpeed);
-      //    Serial.println();
+      //    debug("X: "); debugln(x);
+      //    debug("L Speed: "); debugln(leftSpeed);
+      //    debug("R Speed: "); debugln(rightSpeed);
+      //    debugln();
       setSpeed(leftSpeed, rightSpeed);
     } else {
-      Serial.println("No home blocks in frame");
+      debugln("No home blocks in frame");
       setSpeed(100);
     }
   } else {
-    Serial.println("No blocks");
+    debugln("No blocks");
     setSpeed(100);
   }
 }
@@ -546,6 +566,25 @@ void setRGBLed(rgb_t rgb) {
   digitalWrite(bluePin, blue);
 }
 
+void setRGBLed() {
+  if (lastColorLeft == COLOR_NULL) {
+    setRGBLed(setLastRGBSeen(255,255,255));
+  } else if (lastColorLeft == COLOR_RED) {
+    setRGBLed(setLastRGBSeen(255,0,0));
+  } else if (lastColorLeft == COLOR_GREEN) {
+    setRGBLed(setLastRGBSeen(0,255,0));
+  } else if (lastColorLeft == COLOR_BLUE) {
+    setRGBLed(setLastRGBSeen(0,0,255));
+  } else if (lastColorLeft == COLOR_YELLOW) {
+    setRGBLed(setLastRGBSeen(255,255,0));
+  } else {
+    setRGBLed(setLastRGBSeen(0,0,0));
+    error("lastColorLeft has invalid value");
+    error(lastColorLeft);
+    fail();
+  }
+}
+
 void setSpeed(int speed) {
   setLeftSpeed(speed);
   setRightSpeed(speed);
@@ -564,7 +603,7 @@ int speedToDegrees(int speed) {
 // Reverse full speed -100, Forward full speed 100
 void setLeftSpeed(int speed) {
   int degrees = 180 - speedToDegrees(speed) + 3;
-  //  Serial.print("Left Degrees: "); Serial.println(degrees);
+  //  debug("Left Degrees: "); debugln(degrees);
   leftFrontServo.write(degrees);
   leftBackServo.write(degrees);
 }
@@ -572,7 +611,7 @@ void setLeftSpeed(int speed) {
 // Reverse full speed -100, Forward full speed 100
 void setRightSpeed(int speed) {
   int degrees = speedToDegrees(speed) + 3;
-  //  Serial.print("Right Degrees: "); Serial.println(degrees);
+  //  debug("Right Degrees: "); debugln(degrees);
   rightFrontServo.write(degrees);
   rightBackServo.write(degrees);
 }
