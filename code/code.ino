@@ -32,6 +32,8 @@ const int COLOR_BLUE = 2;
 const int COLOR_YELLOW = 3;
 const int COLOR_GREEN = 4;
 
+int countTemp = 0;
+
 int homeColor = COLOR_NULL;
 int currentQuadrantColor = COLOR_NULL;
 int currentBlockColor = COLOR_NULL;
@@ -228,7 +230,7 @@ void loop() {
     if (blockPresent && isHomeBlock(rF, gF, bF, cF)) {
       debug("THERE IS A BLOCK");
       setDoorOpen();
-      delay(500);
+      delay(300);
       blocksCaptured = blocksCaptured + 1;
       Serial.print("WE HAVE CAPTURED: ");
       Serial.print(blocksCaptured);
@@ -314,21 +316,72 @@ bool isSpinning() {
 // Returns true if the robot is inside the boundary lines, false otherwise
 int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
                   uint16_t rR, uint16_t gR, uint16_t bR, uint16_t cR) {
+                    
   boolean leftOutOfBounds = cL > 1200;
   boolean rightOutOfBounds = cR > 1200;
+  
+  
+  
 
 //  debug("cL: "); debug(cL); debug("; cR: "); debugln(cR);
 
-  if (leftOutOfBounds && rightOutOfBounds) {
-    return BOTH_OUT;
-  } else if (leftOutOfBounds) {
-    return LEFT_OUT;
-  } else if (rightOutOfBounds) {
-    return RIGHT_OUT;
+  if (homeColor != COLOR_NULL) {
+    
+    boolean leftOutHomeBounds = 0;
+    boolean rightOutHomeBounds = 0;
+    // Serial.print("TEST");
+    countTemp = countTemp + 1;
+    
+    if(countTemp > 50) {
+      
+    
+      if(homeColor ==  COLOR_BLUE) {
+        leftOutHomeBounds = isBlueLineLeft(rL, gL, bL, cL);
+        rightOutHomeBounds = isBlueLineRight(rR, gR, bR, cR);
+    
+      } else if(homeColor == COLOR_RED) {
+        leftOutHomeBounds = isRedLineLeft(rL, gL, bL, cL);
+        rightOutHomeBounds = isRedLineRight(rR, gR, bR, cR);
+      } else if(homeColor == COLOR_YELLOW) {
+        leftOutHomeBounds = isYellowLineLeft(rL, gL, bL, cL);
+        rightOutHomeBounds = isYellowLineRight(rR, gR, bR, cR);
+    
+      } else if(homeColor == COLOR_GREEN) {
+        leftOutHomeBounds = isGreenLineLeft(rL, gL, bL, cL);
+        rightOutHomeBounds = isGreenLineRight(rR, gR, bR, cR);
+      }
+    }
+    
+
+    if ((leftOutOfBounds && rightOutOfBounds) || (leftOutHomeBounds || rightOutHomeBounds)) {
+      return BOTH_OUT;
+    } else if (leftOutOfBounds) {
+      return LEFT_OUT;
+    } else if (rightOutOfBounds) {
+      return RIGHT_OUT;
+    } else {
+      return 0;
+    }
+    
   } else {
-    return 0;
+    if (leftOutOfBounds && rightOutOfBounds) {
+      return BOTH_OUT;
+    } else if (leftOutOfBounds) {
+      return LEFT_OUT;
+    } else if (rightOutOfBounds) {
+      return RIGHT_OUT;
+    } else {
+      return 0;
+    }
   }
+
+
+  
 }
+
+
+
+
 
 // Set the home color and last seen left and right wheel colors
 void setQuadrantColors(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
