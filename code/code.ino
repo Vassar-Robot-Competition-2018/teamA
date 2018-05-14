@@ -12,7 +12,7 @@
 int baud = 9600;
 
 // Debug flag. Set to 1 if we want to print debug info
-boolean DEBUG = 0;
+boolean DEBUG = 1;
 
 // Constants
 const int leftFrontServoPin = 8; // Continuous rotation servo for left front wheel
@@ -102,10 +102,18 @@ boolean state_spinLeft = false;
 // Push state info
 boolean state_push = true;
 
+// Homing States
+boolean state_wantToGoHome = false;
+
 // Out of bound states
 int LEFT_OUT = 40;
 int RIGHT_OUT = 41;
 int BOTH_OUT = 42;
+
+int homeLineCount = 0;
+
+// BLOCKS
+uint16_t blocks;
 
 void debugln(String msg) {
   if (DEBUG) {
@@ -210,6 +218,7 @@ void setup() {
 void loop() {
   // Some line padding for each loop iteration
   debugln("");
+  debug("HOME LINE COUNT: "); debugln(homeLineCount);
 
   // Things to do every time no matter what
   uint16_t rF, bF, gF, cF, rR, gR, bR, cR, rL, gL, bL, cL;
@@ -218,6 +227,8 @@ void loop() {
   tcsFunnel.getRawData(&rF, &gF, &bF, &cF);
 
   printCurrentState();
+
+  blocks = pixy.getBlocks();
 
   setQuadrantColors(rR, gR, bR, cR, rL, gL, bL, cL);
   printBlockColors(rF, gF, bF, cF);
@@ -232,9 +243,9 @@ void loop() {
       setDoorOpen();
       delay(300);
       blocksCaptured = blocksCaptured + 1;
-      Serial.print("WE HAVE CAPTURED: ");
-      Serial.print(blocksCaptured);
-      Serial.println(" BLOCKS");
+      debug("WE HAVE CAPTURED: ");
+      debug(blocksCaptured);
+      debugln(" BLOCKS");
     } else if (blockPresent) {
       setSorterOpen();
       delay(750);
@@ -294,7 +305,15 @@ boolean isBlock(Block* block) {
   int x = block->x;
   int y = block->y;
 
-  return (width >= 0.9 * height) && (width <= 1.5 * height);
+  if (homeQuadrantColor != COLOR_NULL) {
+    if (state_wantToGoHome) {
+      return !((width >= 0.9 * height) && (width <= 1.4 * height));
+    } else {
+      return (width >= 0.9 * height) && (width <= 1.4 * height);
+    }
+  } else {
+    return false;    
+  }
 }
 
 bool isSpinning() {
@@ -304,13 +323,13 @@ bool isSpinning() {
 // Returns true if the robot is inside the boundary lines, false otherwise
 int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
                   uint16_t rR, uint16_t gR, uint16_t bR, uint16_t cR) {
-
   boolean leftOutOfBounds = cL > 1200;
   boolean rightOutOfBounds = cR > 1200;
 
   //  debug("cL: "); debug(cL); debug("; cR: "); debugln(cR);
 
   if (homeQuadrantColor == COLOR_NULL || wantToGoHome()) {
+    homeLineCount = 0;
     // Only white lines make it out of bounds
     if (leftOutOfBounds && rightOutOfBounds) {
       return BOTH_OUT;
@@ -345,6 +364,10 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
         leftOutHomeBounds = isGreenLineLeft(rL, gL, bL, cL);
         rightOutHomeBounds = isGreenLineRight(rR, gR, bR, cR);
       }
+    }
+
+    if (leftOutHomeBounds || rightOutHomeBounds) {
+      homeLineCount = 1;
     }
 
     if ((leftOutOfBounds && rightOutOfBounds) ||
@@ -399,7 +422,7 @@ void setQuadrantColors(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
     lastColorRight = COLOR_RED;
   }
 
-  if (lastColorLeft == lastColorRight) {
+  if (lastColorLeft == lastColorRight && currentQuadrantColor != lastColorRight) {
     setCurrentQuadrant(lastColorLeft);
   }
 }
@@ -521,26 +544,21 @@ void setCurrentBlock(int color) {
 /** Color detection **/
 
 boolean isRedBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  Serial.print("R: "); Serial.print(r, DEC); Serial.print(" ");
-  Serial.print("G: "); Serial.print(g, DEC); Serial.print(" ");
-  Serial.print("B: "); Serial.print(b, DEC); Serial.print(" ");
-  Serial.print("C: "); Serial.print(c, DEC); Serial.print(" ");
-  Serial.println(" ");
   if (r > g && r > b && c > 200) {
-    Serial.println("RED!");
+    debugln("RED!");
     return true;
   } else {
-//    Serial.println("NOT RED!");
-  return false;
+    //    Serial.println("NOT RED!");
+    return false;
   }
 }
 
 boolean isRedLineLeft(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  return isRedBlock(r, g, b, c);
+  return isRedBlock(r, g, b, c) && c < 1500;
 }
 
 boolean isRedLineRight(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  return isRedBlock(r, g, b, c);
+  return isRedBlock(r, g, b, c) && c < 1500;
 }
 
 boolean isBlueBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
@@ -550,26 +568,26 @@ boolean isBlueBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
 }
 
 boolean isBlueLineLeft(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  return isBlueBlock(r, g, b, c);
+  return isBlueBlock(r, g, b, c) && c < 1500;
 }
 
 boolean isBlueLineRight(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  return isBlueBlock(r, g, b, c);
+  return isBlueBlock(r, g, b, c) && c < 1500;
 }
 
 boolean isYellowBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  return r > g && g > b && c > 400
+  return r > b && g > b && c > 400
          && abs(r - g) <= 400
          && (b - 100) * 2 <= r
          && (b - 100) * 2 <= g;
 }
 
 boolean isYellowLineLeft(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  return isYellowBlock(r, g, b, c);
+  return isYellowBlock(r, g, b, c) && c < 1500;
 }
 
 boolean isYellowLineRight(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  return isYellowBlock(r, g, b, c);
+  return isYellowBlock(r, g, b, c) && c < 1500;
 }
 
 boolean isGreenBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
@@ -623,7 +641,13 @@ void backup() {
 void startSpinning(int t) {
   //  setFrontFlapDown();
   spinTime = t;
-  spin(random(0, 1));
+  if (random(0, 100) > 50) {
+    spin(true);
+    Serial.println("SPIN LEFT");
+  } else {
+    spin(false);
+    Serial.println("SPIN RIGHT");
+  }
 }
 
 // Continue spinning right
@@ -640,8 +664,13 @@ void spin(boolean spinLeft) {
   debugln(stateStartTime);
   debug("TIME LEFT: ");
   debugln(timeLeft);
+  Block* bestBlock;
 
-  if (timeLeft <= 0) {
+  if (blocks) {
+    bestBlock = findBestBlock(&pixy.blocks, blocks);
+  }
+
+  if (timeLeft <= 0 || isHomeBlock(bestBlock->signature)) {
     resetAllStates();
     setStateTrue(&state_push);
     return;
@@ -668,14 +697,15 @@ void spinBackup() {
   debug("TIME LEFT: ");
   debugln(timeLeft);
   if (timeLeft <= 0) {
-    startSpinning(random(1500, 2500));
+    startSpinning(randomInt(1500, 2500));
     return;
   }
   setSpeed(-100);
 }
 
 boolean wantToGoHome() {
-  if (millis() >= 1 * 60000 /* 1 minute */) {
+  if (millis() >= 3 * 60000 /* 3 minute */) {
+    state_wantToGoHome = true;
     return true;
   } else {
     return false;
@@ -685,11 +715,23 @@ boolean wantToGoHome() {
 void push(int outOfBounds) {
   if (!state_push) {
     resetAllStates();
-    setStateTrue(&state_spinBackup);
+    setStateTrue(&state_push);
+  }
+
+  if (millis() - stateStartTime > 45000 /* 45 seconds */) {
+    setSpeed(0);
+    delay(200);
+    setSpeed(-100);
+    delay(500);
+    setSpeed(-100,100);
+    delay(2000);
+    setSpeed(100);
+    stateStartTime = millis();
   }
 
   // Done
   if (currentQuadrantColor == homeQuadrantColor && wantToGoHome()) {
+    state_wantToGoHome = false;
     setSpeed(100);
     delay(1000);
     fail();
@@ -697,11 +739,20 @@ void push(int outOfBounds) {
 
   if (!outOfBounds) {
     setSpeed(100);
-    //    followBlocks(); // Uses Pixy
+//    followBlocks(); // Uses Pixy
+  } else if (homeLineCount) {
+    setSpeed(0);
+    delay(200);
+    setSpeed(-100);
+    delay(500);
+    setSpeed(-100, 100);
+    delay(2500);
+    homeLineCount = 0;
+    setCurrentQuadrant(COLOR_NULL);
   } else {
     setSpeed(0);
     delay(200);
-    startSpinBackup(1000);
+    startSpinBackup(1200);
   }
 }
 
@@ -711,9 +762,6 @@ void followBlocks() {
   int x;
   float leftSpeed;
   float rightSpeed;
-  uint16_t blocks;
-
-  blocks = pixy.getBlocks();
 
   if (blocks) {
     Block* block = findBestBlock(&pixy.blocks, blocks);

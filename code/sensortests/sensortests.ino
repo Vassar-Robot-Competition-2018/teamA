@@ -5,7 +5,7 @@
 Adafruit_TCS34725softi2c tcsFunnel = Adafruit_TCS34725softi2c(
                                        TCS34725_INTEGRATIONTIME_24MS,
                                        TCS34725_GAIN_1X,
-                                       34 /* SDA */, 35 /* SCL */);
+                                       30 /* SDA */, 31 /* SCL */);
 
 void setup() {
   Serial.begin(9600);
