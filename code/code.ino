@@ -12,7 +12,7 @@
 int baud = 9600;
 
 // Debug flag. Set to 1 if we want to print debug info
-boolean DEBUG = 0;
+boolean DEBUG = 1;
 
 // Constants
 const int leftFrontServoPin = 8; // Continuous rotation servo for left front wheel
@@ -24,7 +24,6 @@ const int doorMechanismServoPin = 6; //Door says come in!! or Don't!!
 
 int blockPresent = 0; // We start out without a block in the chamber.
 int blocksCaptured = 0; // Set an int to store the number of blocks we've captured
-
 
 const int COLOR_NULL = 0;
 const int COLOR_RED = 1;
@@ -91,17 +90,17 @@ Adafruit_TCS34725softi2c tcsLeft = Adafruit_TCS34725softi2c(
                                      32 /* SDA */, 33 /* SCL */);
 
 // States
-int currentState;
 unsigned long stateStartTime;
 
 // Spin state info
-int SPIN_BACKUP = 2;
 int backupTime;
-int SPIN_SPIN = 3;
 int spinTime;
+boolean state_spinBackup = false;
+boolean state_spinSpin = false;
+boolean state_spinLeft = false;
 
 // Push state info
-int PUSH = 4;
+boolean state_push = true;
 
 // Out of bound states
 int LEFT_OUT = 40;
@@ -203,11 +202,13 @@ void setup() {
   setLEDsFromState();
 
   // Set initial state
-  setState(PUSH);
+  resetAllStates();
+  setStateTrue(&state_push);
 }
 
 //Code that continuously runs on Arduino
 void loop() {
+  delay(500);
   // Some line padding for each loop iteration
   debugln("");
 
@@ -224,7 +225,7 @@ void loop() {
 
   int outOfBounds = isOutOfBounds(rL, gL, bL, cL, rR, gR, bR, cR);
 
-  if (currentState == PUSH) {
+  if (state_push) {
     push(outOfBounds);
 
     if (blockPresent && isHomeBlock(rF, gF, bF, cF)) {
@@ -244,10 +245,10 @@ void loop() {
     }
 
   } else if (isSpinning()) {
-    if (currentState == SPIN_BACKUP) {
+    if (state_spinBackup) {
       spinBackup();
-    } else if (currentState == SPIN_SPIN) {
-      spin();
+    } else if (state_spinSpin) {
+      spin(state_spinLeft);
     } else {
       error("INVALID SPIN STATE");
       fail();
@@ -259,21 +260,9 @@ void loop() {
 }
 
 void printCurrentState() {
-  debug("Current State: ");
-  switch (currentState) {
-    case 2:
-      debugln("SPIN_BACKUP");
-      break;
-    case 3:
-      debugln("SPIN_SPIN");
-      break;
-    case 4:
-      debugln("PUSH");
-      break;
-    default:
-      debug(currentState);
-      debugln(": INVALID STATE");
-  }
+  debug("state_spinBackup: "); debugln(state_spinBackup);
+  debug("state_spinSpin: "); debugln(state_spinSpin);
+  debug("state_push: "); debugln(state_push);
 }
 
 boolean isHomeBlock(int signature) {
@@ -310,7 +299,7 @@ boolean isBlock(Block* block) {
 }
 
 bool isSpinning() {
-  return currentState == SPIN_SPIN || currentState == SPIN_BACKUP;
+  return state_spinSpin || state_spinBackup;
 }
 
 // Returns true if the robot is inside the boundary lines, false otherwise
@@ -319,9 +308,6 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
                     
   boolean leftOutOfBounds = cL > 1200;
   boolean rightOutOfBounds = cR > 1200;
-  
-  
-  
 
 //  debug("cL: "); debug(cL); debug("; cR: "); debugln(cR);
 
@@ -374,13 +360,8 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
       return 0;
     }
   }
-
-
   
 }
-
-
-
 
 
 // Set the home color and last seen left and right wheel colors
@@ -636,14 +617,19 @@ void backup() {
 }
 
 // Start the robot spinning
-void startSpinning(int time) {
+void startSpinning(int t) {
   //  setFrontFlapDown();
-  spinTime = time;
-  spin();
+  spinTime = t;
+  spin(random(0, 1));
 }
 
 // Continue spinning right
-void spin() {
+void spin(boolean spinLeft) {
+  if (!state_spinSpin) {
+    resetAllStates();
+    setStateTrue(&state_spinSpin);
+    state_spinLeft = spinLeft;
+  }
   int timeLeft = spinTime - (millis() - stateStartTime);
   debugln("SPINNING!");
   debug(millis());
@@ -653,38 +639,42 @@ void spin() {
   debugln(timeLeft);
 
   if (timeLeft <= 0) {
-    setState(PUSH);
+    resetAllStates();
+    setStateTrue(&state_push);
     return;
   }
-  if (currentState != SPIN_SPIN) {
-    setState(SPIN_SPIN);
+  if (state_spinLeft) {
+    setSpeed(-100, 100);
+  } else {
+    setSpeed(100, 100);
   }
-  setSpeed(-100, 100);
 }
 
-void startSpinBackup(int time) {
+void startSpinBackup(int t) {
   //  setFrontFlapUp();
-  backupTime = time;
+  backupTime = t;
   spinBackup();
 }
 
 void spinBackup() {
-  if (currentState != SPIN_BACKUP) {
-    setState(SPIN_BACKUP);
+  if (!state_spinBackup) {
+    resetAllStates();
+    setStateTrue(&state_spinBackup);
   }
   int timeLeft = backupTime - (millis() - stateStartTime);
   debug("TIME LEFT: ");
   debugln(timeLeft);
   if (timeLeft <= 0) {
-    startSpinning(randomInt(1500, 2500));
+    startSpinning(random(1500, 2500));
     return;
   }
   setSpeed(-100);
 }
 
 void push(int outOfBounds) {
-  if (currentState != PUSH) {
-    setState(PUSH);
+  if (!state_push) {
+    resetAllStates();
+    setStateTrue(&state_spinBackup);
   }
 
   if (!outOfBounds) {
@@ -788,11 +778,16 @@ void setRightSpeed(int speed) {
   rightBackServo.write(degrees);
 }
 
-void setState(int state) {
-  currentState = state;
+void setStateTrue(boolean *state) {
+  *state = true;
   stateStartTime = millis();
 }
 
+void resetAllStates() {
+  state_spinBackup = false;
+  state_spinSpin = false;
+  state_push = false;
+}
 
 void setSorterClosed() {
   sorterMechanismServo.write(175);
