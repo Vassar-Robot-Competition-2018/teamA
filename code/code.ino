@@ -208,7 +208,6 @@ void setup() {
 
 //Code that continuously runs on Arduino
 void loop() {
-  delay(500);
   // Some line padding for each loop iteration
   debugln("");
 
@@ -305,39 +304,39 @@ bool isSpinning() {
 // Returns true if the robot is inside the boundary lines, false otherwise
 int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
                   uint16_t rR, uint16_t gR, uint16_t bR, uint16_t cR) {
-                    
+
   boolean leftOutOfBounds = cL > 1200;
   boolean rightOutOfBounds = cR > 1200;
 
-//  debug("cL: "); debug(cL); debug("; cR: "); debugln(cR);
+  //  debug("cL: "); debug(cL); debug("; cR: "); debugln(cR);
 
-  if (homeColor != COLOR_NULL) {
-    
+  if (homeColor != COLOR_NULL && !wantToGoHome()) {
+
     boolean leftOutHomeBounds = 0;
     boolean rightOutHomeBounds = 0;
     // Serial.print("TEST");
     countTemp = countTemp + 1;
-    
-    if(countTemp > 50) {
-      
-    
-      if(homeColor ==  COLOR_BLUE) {
+
+    if (countTemp > 50) {
+
+
+      if (homeColor ==  COLOR_BLUE) {
         leftOutHomeBounds = isBlueLineLeft(rL, gL, bL, cL);
         rightOutHomeBounds = isBlueLineRight(rR, gR, bR, cR);
-    
-      } else if(homeColor == COLOR_RED) {
+
+      } else if (homeColor == COLOR_RED) {
         leftOutHomeBounds = isRedLineLeft(rL, gL, bL, cL);
         rightOutHomeBounds = isRedLineRight(rR, gR, bR, cR);
-      } else if(homeColor == COLOR_YELLOW) {
+      } else if (homeColor == COLOR_YELLOW) {
         leftOutHomeBounds = isYellowLineLeft(rL, gL, bL, cL);
         rightOutHomeBounds = isYellowLineRight(rR, gR, bR, cR);
-    
-      } else if(homeColor == COLOR_GREEN) {
+
+      } else if (homeColor == COLOR_GREEN) {
         leftOutHomeBounds = isGreenLineLeft(rL, gL, bL, cL);
         rightOutHomeBounds = isGreenLineRight(rR, gR, bR, cR);
       }
     }
-    
+
 
     if ((leftOutOfBounds && rightOutOfBounds) || (leftOutHomeBounds || rightOutHomeBounds)) {
       return BOTH_OUT;
@@ -348,7 +347,7 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
     } else {
       return 0;
     }
-    
+
   } else {
     if (leftOutOfBounds && rightOutOfBounds) {
       return BOTH_OUT;
@@ -360,7 +359,7 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
       return 0;
     }
   }
-  
+
 }
 
 
@@ -646,7 +645,7 @@ void spin(boolean spinLeft) {
   if (state_spinLeft) {
     setSpeed(-100, 100);
   } else {
-    setSpeed(100, 100);
+    setSpeed(100, -100);
   }
 }
 
@@ -671,10 +670,20 @@ void spinBackup() {
   setSpeed(-100);
 }
 
+boolean wantToGoHome() {
+  return millis() >= 180000;
+}
+
 void push(int outOfBounds) {
   if (!state_push) {
     resetAllStates();
     setStateTrue(&state_spinBackup);
+  }
+
+  if (currentQuadrantColor == homeQuadrantColor && wantToGoHome()) {
+    setSpeed(100);
+    delay(3000);
+    fail();
   }
 
   if (!outOfBounds) {
