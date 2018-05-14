@@ -33,7 +33,7 @@ const int COLOR_GREEN = 4;
 
 int countTemp = 0;
 
-int homeColor = COLOR_NULL;
+int homeQuadrantColor = COLOR_NULL;
 int currentQuadrantColor = COLOR_NULL;
 int currentBlockColor = COLOR_NULL;
 int lastColorLeft = COLOR_NULL;
@@ -265,7 +265,7 @@ void printCurrentState() {
 }
 
 boolean isHomeBlock(int signature) {
-  return signature == homeColor;
+  return signature == homeQuadrantColor;
 }
 
 // Finds the biggest block and returns a pointer to it
@@ -310,7 +310,7 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
 
   //  debug("cL: "); debug(cL); debug("; cR: "); debugln(cR);
 
-  if (homeColor != COLOR_NULL && !wantToGoHome()) {
+  if (homeQuadrantColor != COLOR_NULL && !wantToGoHome()) {
 
     boolean leftOutHomeBounds = 0;
     boolean rightOutHomeBounds = 0;
@@ -320,25 +320,26 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
     if (countTemp > 50) {
 
 
-      if (homeColor ==  COLOR_BLUE) {
+      if (homeQuadrantColor ==  COLOR_BLUE) {
         leftOutHomeBounds = isBlueLineLeft(rL, gL, bL, cL);
         rightOutHomeBounds = isBlueLineRight(rR, gR, bR, cR);
 
-      } else if (homeColor == COLOR_RED) {
+      } else if (homeQuadrantColor == COLOR_RED) {
         leftOutHomeBounds = isRedLineLeft(rL, gL, bL, cL);
         rightOutHomeBounds = isRedLineRight(rR, gR, bR, cR);
-      } else if (homeColor == COLOR_YELLOW) {
+      } else if (homeQuadrantColor == COLOR_YELLOW) {
         leftOutHomeBounds = isYellowLineLeft(rL, gL, bL, cL);
         rightOutHomeBounds = isYellowLineRight(rR, gR, bR, cR);
 
-      } else if (homeColor == COLOR_GREEN) {
+      } else if (homeQuadrantColor == COLOR_GREEN) {
         leftOutHomeBounds = isGreenLineLeft(rL, gL, bL, cL);
         rightOutHomeBounds = isGreenLineRight(rR, gR, bR, cR);
       }
     }
 
 
-    if ((leftOutOfBounds && rightOutOfBounds) || (leftOutHomeBounds || rightOutHomeBounds)) {
+    if ((leftOutOfBounds && rightOutOfBounds) ||
+        (leftOutHomeBounds || rightOutHomeBounds)) {
       return BOTH_OUT;
     } else if (leftOutOfBounds) {
       return LEFT_OUT;
@@ -367,7 +368,7 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
 void setQuadrantColors(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
                        uint16_t rR, uint16_t gR, uint16_t bR, uint16_t cR) {
   // Set home color if we haven't already
-  if (homeColor == COLOR_NULL) {
+  if (homeQuadrantColor == COLOR_NULL) {
     if (isYellowLineLeft(rL, gL, bL, cL) || isYellowLineRight(rR, gR, bR, cR)) {
       setHomeQuadrant(COLOR_YELLOW);
     } else if (isRedLineLeft(rL, gL, bL, cL) || isRedLineRight(rR, gR, bR, cR)) {
@@ -423,7 +424,7 @@ void printBlockColors(uint16_t rF, uint16_t gF, uint16_t bF, uint16_t cF) {
 /** State Setters **/
 
 void setHomeQuadrant(int color) {
-  homeColor = color;
+  homeQuadrantColor = color;
   debug("Home Quadrant Color: ");
   switch (color) {
     case COLOR_NULL:
@@ -523,9 +524,7 @@ void setCurrentBlock(int color) {
 /** Color detection **/
 
 boolean isRedBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  // red greater than green & blue
-  // green & blue within 30 of eachother
-  return r > g && r > b && c > 200;
+  return r > g && r > b && c > 200 && abs(g - b) <= 150;
 }
 
 boolean isRedLineLeft(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
@@ -551,11 +550,10 @@ boolean isBlueLineRight(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
 }
 
 boolean isYellowBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  // red most
-  // green middle
-  // blue least
-  // red & green within 200 of eachother
-  return r > g && g > b && c > 400;
+  return r > g && g > b && c > 400
+         && abs(r - g) <= 400
+         && (b - 100) * 2 <= r
+         && (b - 100) * 2 <= g;
 }
 
 boolean isYellowLineLeft(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
@@ -567,8 +565,6 @@ boolean isYellowLineRight(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
 }
 
 boolean isGreenBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  // green greatest
-  // red & blue within 20 of eachother
   return g > b && g > r && c > 400 && g > (r + 75) && g > (b + 75);
 }
 
@@ -583,16 +579,16 @@ boolean isGreenLineRight(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
 // Returns true if the given block colors are the same as the home
 // quadrant color
 boolean isHomeBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  if (homeColor == COLOR_NULL) {
+  if (homeQuadrantColor == COLOR_NULL) {
     debug("Home color has not been set");
     return 0;
-  } else if (homeColor == COLOR_YELLOW && isYellowBlock(r, g, b, c)) {
+  } else if (homeQuadrantColor == COLOR_YELLOW && isYellowBlock(r, g, b, c)) {
     return 1;
-  } else if (homeColor == COLOR_BLUE && isBlueBlock(r, g, b, c)) {
+  } else if (homeQuadrantColor == COLOR_BLUE && isBlueBlock(r, g, b, c)) {
     return 1;
-  } else if (homeColor == COLOR_GREEN && isGreenBlock(r, g, b, c)) {
+  } else if (homeQuadrantColor == COLOR_GREEN && isGreenBlock(r, g, b, c)) {
     return 1;
-  } else if (homeColor == COLOR_RED && isRedBlock(r, g, b, c)) {
+  } else if (homeQuadrantColor == COLOR_RED && isRedBlock(r, g, b, c)) {
     return 1;
   } else {
     // Input block is not a color
@@ -738,7 +734,7 @@ int randomInt(int min, int max) {
 }
 
 void setLEDsFromState() {
-  setHomeQuadrant(homeColor);
+  setHomeQuadrant(homeQuadrantColor);
   setCurrentBlock(currentBlockColor);
   setCurrentQuadrant(currentQuadrantColor);
 }
