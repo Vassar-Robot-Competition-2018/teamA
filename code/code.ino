@@ -12,7 +12,7 @@
 int baud = 9600;
 
 // Debug flag. Set to 1 if we want to print debug info
-boolean DEBUG = 1;
+boolean DEBUG = 0;
 
 // Constants
 const int leftFrontServoPin = 8; // Continuous rotation servo for left front wheel
@@ -310,23 +310,33 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
 
   //  debug("cL: "); debug(cL); debug("; cR: "); debugln(cR);
 
-  if (homeQuadrantColor != COLOR_NULL && !wantToGoHome()) {
-
+  if (homeQuadrantColor == COLOR_NULL || wantToGoHome()) {
+    // Only white lines make it out of bounds
+    if (leftOutOfBounds && rightOutOfBounds) {
+      return BOTH_OUT;
+    } else if (leftOutOfBounds) {
+      return LEFT_OUT;
+    } else if (rightOutOfBounds) {
+      return RIGHT_OUT;
+    } else {
+      return 0;
+    }
+  } else {
+    // White lines and home quadrant lines are out of bounds
     boolean leftOutHomeBounds = 0;
     boolean rightOutHomeBounds = 0;
     // Serial.print("TEST");
     countTemp = countTemp + 1;
 
     if (countTemp > 50) {
-
-
-      if (homeQuadrantColor ==  COLOR_BLUE) {
+      if (homeQuadrantColor == COLOR_BLUE) {
         leftOutHomeBounds = isBlueLineLeft(rL, gL, bL, cL);
         rightOutHomeBounds = isBlueLineRight(rR, gR, bR, cR);
 
       } else if (homeQuadrantColor == COLOR_RED) {
         leftOutHomeBounds = isRedLineLeft(rL, gL, bL, cL);
         rightOutHomeBounds = isRedLineRight(rR, gR, bR, cR);
+
       } else if (homeQuadrantColor == COLOR_YELLOW) {
         leftOutHomeBounds = isYellowLineLeft(rL, gL, bL, cL);
         rightOutHomeBounds = isYellowLineRight(rR, gR, bR, cR);
@@ -337,30 +347,17 @@ int isOutOfBounds(uint16_t rL, uint16_t gL, uint16_t bL, uint16_t cL,
       }
     }
 
-
     if ((leftOutOfBounds && rightOutOfBounds) ||
         (leftOutHomeBounds || rightOutHomeBounds)) {
       return BOTH_OUT;
-    } else if (leftOutOfBounds) {
+    } else if (leftOutOfBounds || leftOutHomeBounds) {
       return LEFT_OUT;
-    } else if (rightOutOfBounds) {
-      return RIGHT_OUT;
-    } else {
-      return 0;
-    }
-
-  } else {
-    if (leftOutOfBounds && rightOutOfBounds) {
-      return BOTH_OUT;
-    } else if (leftOutOfBounds) {
-      return LEFT_OUT;
-    } else if (rightOutOfBounds) {
+    } else if (rightOutOfBounds || rightOutHomeBounds) {
       return RIGHT_OUT;
     } else {
       return 0;
     }
   }
-
 }
 
 
@@ -460,7 +457,7 @@ void setCurrentQuadrant(int color) {
   switch (color) {
     case COLOR_NULL:
       debugln("NULL");
-      setRGBLed(quadrantLEDRedPin, quadrantLEDGreenPin, quadrantLEDBluePin, 255, 0, 0);
+      setRGBLed(quadrantLEDRedPin, quadrantLEDGreenPin, quadrantLEDBluePin, 0, 0, 0);
       break;
     case COLOR_RED:
       debugln("RED");
@@ -524,7 +521,18 @@ void setCurrentBlock(int color) {
 /** Color detection **/
 
 boolean isRedBlock(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  return r > g && r > b && c > 200 && abs(g - b) <= 150;
+  Serial.print("R: "); Serial.print(r, DEC); Serial.print(" ");
+  Serial.print("G: "); Serial.print(g, DEC); Serial.print(" ");
+  Serial.print("B: "); Serial.print(b, DEC); Serial.print(" ");
+  Serial.print("C: "); Serial.print(c, DEC); Serial.print(" ");
+  Serial.println(" ");
+  if (r > g && r > b && c > 200) {
+    Serial.println("RED!");
+    return true;
+  } else {
+//    Serial.println("NOT RED!");
+  return false;
+  }
 }
 
 boolean isRedLineLeft(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
@@ -667,7 +675,11 @@ void spinBackup() {
 }
 
 boolean wantToGoHome() {
-  return millis() >= 180000;
+  if (millis() >= 1 * 60000 /* 1 minute */) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 void push(int outOfBounds) {
@@ -676,9 +688,10 @@ void push(int outOfBounds) {
     setStateTrue(&state_spinBackup);
   }
 
+  // Done
   if (currentQuadrantColor == homeQuadrantColor && wantToGoHome()) {
     setSpeed(100);
-    delay(3000);
+    delay(1000);
     fail();
   }
 
@@ -686,6 +699,8 @@ void push(int outOfBounds) {
     setSpeed(100);
     //    followBlocks(); // Uses Pixy
   } else {
+    setSpeed(0);
+    delay(200);
     startSpinBackup(1000);
   }
 }
