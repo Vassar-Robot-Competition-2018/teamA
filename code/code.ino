@@ -237,7 +237,7 @@ void loop() {
       Serial.println(" BLOCKS");
     } else if (blockPresent) {
       setSorterOpen();
-      delay(800);
+      delay(750);
     } else {
       setSorterClosed();
       setDoorClosed();
@@ -676,7 +676,7 @@ void spinBackup() {
   debug("TIME LEFT: ");
   debugln(timeLeft);
   if (timeLeft <= 0) {
-    startSpinning(randomInt(2000, 3500));
+    startSpinning(randomInt(1500, 2500));
     return;
   }
   setSpeed(-100);
