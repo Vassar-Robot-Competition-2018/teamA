@@ -1,0 +1,22 @@
+WEEK 12 NOTEBOOK
+
+NEW CHANGES
+We added a light for the home quadrant, current quadrant, and block color, so each light’s up respectively. 
+We drilled down everything on the top of the robot so that if we need to flip it over and use the stand,
+nothing will fall off. We also reprinted the spinning door so that it is more of a wall on the side that 
+lets the blocks out, so that the blocks would be less likely to get stuck and drag as the robot moves. 
+We will consider increasing the angle of the funnel to reduce the risk of the blocks getting stuck even further. 
+There is currently no camera being used, but we could add the camera back if we want to. We should be able to do 
+without it and use random turning to find blocks of our home color, and if time permits the camera can be used 
+to seek and drive towards block of our home color that it sees. If we have the camera, we may need to swerve 
+back and forth while driving to look for blocks.
+
+FINAL CODING
+The have implemented the coding logic to drive back to the home quadrant after 3:00 minutes of running in 
+the arena, avoiding the home quadrant until then. When the robot is searching for blocks, it stays out of 
+its home quadrant entirely until the 3 minutes are up. The code has also been adjusted to account for some 
+of the edge cases we have been seeing. If the door mechanism opens for a block, there is a 750 delay, but 
+when the robot is close to the white line edge the delay causes the robot not to sense that it is out of bounds. 
+To prevent the robot from running outside the arena when this case occurs, we maybe need to change it to a state 
+based, or just make it as minimal of a delay as possible. We also have decided not to implement the code that we
+keep track of the amount of blocks captured so we can return home at the end, and return based purely on timing without the camera. 
